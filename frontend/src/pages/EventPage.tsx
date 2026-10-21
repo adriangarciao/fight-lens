@@ -34,8 +34,20 @@ function Bout({ b, date, i }: { b: CardBout; date: string; i: number }) {
             </div>
             <SplitBar a={b.prediction.p_1} b={b.prediction.p_2} compact />
             <div className="small muted" style={{ marginTop: 4 }}>
-              Most likely: {b.prediction.likely_outcome} ({Math.round(b.prediction.likely_outcome_probability * 100)}%)
+              {done ? "Pre-fight pick" : "Most likely"}: {b.prediction.likely_outcome} (
+              {Math.round(b.prediction.likely_outcome_probability * 100)}%)
             </div>
+            {b.prediction.result && (
+              <div className="mono small" style={{ marginTop: 2 }}>
+                {b.prediction.result.status === "void" ? (
+                  <span className="muted">void (no winner)</span>
+                ) : b.prediction.result.favourite_correct ? (
+                  <span className="hit">✓ favourite won · gave winner {Math.round((b.prediction.result.p_actual_winner ?? 0) * 100)}%</span>
+                ) : (
+                  <span className="miss">✗ upset · gave winner {Math.round((b.prediction.result.p_actual_winner ?? 0) * 100)}%</span>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           !done && <span className="mono small muted">No stored prediction yet</span>

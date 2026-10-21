@@ -10,7 +10,15 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Bout, Event, Fighter, IngestionRun, ModelVersion, Prediction
+from app.db.models import (
+    Bout,
+    Event,
+    Fighter,
+    IngestionRun,
+    ModelVersion,
+    Prediction,
+    PredictionResult,
+)
 from app.ml import features as F
 from app.ml.artifacts import ModelBundle, load_bundle
 from app.ml.data import BoutRow, FighterStatic, load_history
@@ -19,6 +27,7 @@ from app.ml.predict import RawPrediction, predict_pair
 from app.schemas.common import FighterRef
 from app.schemas.predictions import (
     CardPrediction,
+    CardResult,
     DataConfidence,
     Outcome,
     PredictionOut,
@@ -271,18 +280,37 @@ def batch_predict_scheduled(session: Session) -> dict:
 
 
 def card_predictions(session: Session, bout_ids: list[int]) -> dict[int, CardPrediction]:
-    """Stored active-model predictions for a card, keyed by bout id (missing -> not generated)."""
-    mv = session.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
-    if mv is None or not bout_ids:
+    """Predictions for a card, keyed by bout id.
+
+    Scheduled bouts get the active model's stored prediction. Completed bouts get the latest
+    prediction stored *before fight day* by whichever model was active then, with its result;
+    hindsight predictions are never shown as if they were forecasts.
+    """
+    if not bout_ids:
         return {}
+    mv = session.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
+    status = dict(session.execute(select(Bout.id, Bout.status).where(Bout.id.in_(bout_ids))).all())
+    results = {
+        r.prediction_id: r
+        for r in session.scalars(
+            select(PredictionResult).where(PredictionResult.bout_id.in_(bout_ids))
+        )
+    }
     rows = session.scalars(
         select(Prediction)
-        .where(Prediction.bout_id.in_(bout_ids), Prediction.model_version_id == mv.id)
-        .order_by(Prediction.as_of.desc())
+        .options(joinedload(Prediction.model_version))
+        .where(Prediction.bout_id.in_(bout_ids))
+        .order_by(Prediction.created_at.desc(), Prediction.id.desc())
     ).all()
     out: dict[int, CardPrediction] = {}
     for p in rows:
         if p.bout_id in out:
+            continue
+        result = results.get(p.id)
+        if status[p.bout_id] == "completed":
+            if result is None or result.timing != "pre_fight":
+                continue
+        elif mv is None or p.model_version_id != mv.id:
             continue
         best = max(p.payload["outcomes"], key=lambda o: o["probability"])
         name = (
@@ -295,7 +323,17 @@ def card_predictions(session: Session, bout_ids: list[int]) -> dict[int, CardPre
             p_2=1 - p.p_a,
             likely_outcome=f"{name} by {METHOD_WORD[best['method']]}",
             likely_outcome_probability=best["probability"],
-            model_version=mv.version,
+            model_version=p.model_version.version,
             generated_at=p.created_at or datetime.now(UTC),
+            result=(
+                CardResult(
+                    status=result.status,
+                    favourite_correct=result.favourite_correct,
+                    p_actual_winner=result.p_actual_winner,
+                    p_actual_outcome=result.p_actual_outcome,
+                )
+                if result is not None
+                else None
+            ),
         )
     return out

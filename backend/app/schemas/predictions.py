@@ -57,6 +57,13 @@ class PredictionOut(BaseModel):
     )
 
 
+class CardResult(BaseModel):
+    status: Literal["scored", "void"]
+    favourite_correct: bool | None
+    p_actual_winner: float | None
+    p_actual_outcome: float | None
+
+
 class CardPrediction(BaseModel):
     p_1: float
     p_2: float
@@ -64,3 +71,4 @@ class CardPrediction(BaseModel):
     likely_outcome_probability: float
     model_version: str
     generated_at: datetime
+    result: CardResult | None = None

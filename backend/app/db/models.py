@@ -219,3 +219,33 @@ class BenchmarkOdds(Base):
     f2_ko: Mapped[float | None] = mapped_column(Float)
     f2_sub: Mapped[float | None] = mapped_column(Float)
     f2_dec: Mapped[float | None] = mapped_column(Float)
+
+
+class PredictionResult(Base):
+    """How a stored prediction fared once its bout had a result. One row per prediction."""
+
+    __tablename__ = "prediction_results"
+    __table_args__ = (
+        CheckConstraint("status IN ('scored', 'void')", name="ck_prediction_result_status"),
+        CheckConstraint(
+            "timing IN ('pre_fight', 'same_day', 'after')", name="ck_prediction_result_timing"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prediction_id: Mapped[int] = mapped_column(ForeignKey("predictions.id"), unique=True)
+    bout_id: Mapped[int] = mapped_column(ForeignKey("bouts.id"), index=True)
+    # pre_fight: stored before the event's calendar day (UTC). Only these count as forecasts.
+    timing: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))  # void = draw / no contest (win-only model)
+    actual_outcome: Mapped[str] = mapped_column(String(20))
+    actual_method: Mapped[str | None] = mapped_column(String(20))
+    p_actual_winner: Mapped[float | None] = mapped_column(Float)
+    favourite_correct: Mapped[bool | None] = mapped_column(Boolean)
+    log_loss: Mapped[float | None] = mapped_column(Float)
+    brier: Mapped[float | None] = mapped_column(Float)
+    # P(exact winner + method); None when the method isn't one we model (DQ, overturned, ...).
+    p_actual_outcome: Mapped[float | None] = mapped_column(Float)
+    scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    prediction: Mapped[Prediction] = relationship()

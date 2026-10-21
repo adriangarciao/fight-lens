@@ -4,6 +4,7 @@ import { BrowserRouter, NavLink, Route, Routes, Link } from "react-router-dom";
 import { ComparePage } from "./pages/ComparePage";
 import { EventPage } from "./pages/EventPage";
 import { EventsPage } from "./pages/EventsPage";
+import { TrackRecordPage } from "./pages/TrackRecordPage";
 import "./styles.css";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <nav>
           <NavLink to="/" end>Cards</NavLink>
           <NavLink to="/compare">Compare</NavLink>
+          <NavLink to="/track-record">Track record</NavLink>
         </nav>
       </header>
       <div className="dateline">
@@ -27,6 +29,7 @@ function App() {
           <Route path="/" element={<EventsPage />} />
           <Route path="/events/:id" element={<EventPage />} />
           <Route path="/compare" element={<ComparePage />} />
+          <Route path="/track-record" element={<TrackRecordPage />} />
           <Route path="*" element={<p className="empty">Page not found.</p>} />
         </Routes>
       </main>

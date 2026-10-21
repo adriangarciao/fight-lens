@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import events, fighters, matchups, predictions
+from app.api import events, fighters, matchups, predictions, track_record
 from app.config import get_settings
 
 app = FastAPI(
@@ -19,6 +19,7 @@ app.include_router(events.router)
 app.include_router(fighters.router)
 app.include_router(matchups.router)
 app.include_router(predictions.router)
+app.include_router(track_record.router)
 
 
 @app.get("/api/health")

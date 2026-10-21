@@ -140,6 +140,48 @@ export interface CardPrediction {
   likely_outcome_probability: number;
   model_version: string;
   generated_at: string;
+  result: {
+    status: "scored" | "void";
+    favourite_correct: boolean | null;
+    p_actual_winner: number | null;
+    p_actual_outcome: number | null;
+  } | null;
+}
+
+export interface TrackMetrics {
+  n: number;
+  accuracy: number | null;
+  log_loss: number | null;
+  brier: number | null;
+  coin_flip_log_loss: number;
+  mean_p_actual_outcome: number | null;
+  n_outcome: number;
+}
+
+export interface TrackRecord {
+  headline: TrackMetrics;
+  calibration: { bucket: string; n: number; mean_predicted: number; observed: number }[];
+  voided: number;
+  pending: number;
+  excluded_not_pre_fight: number;
+  by_model_version: { model_version: string; metrics: TrackMetrics }[];
+  recent: {
+    bout_id: number;
+    event_name: string;
+    event_date: string;
+    fighter_a: FighterRef;
+    fighter_b: FighterRef;
+    p_a: number;
+    winner: FighterRef | null;
+    actual_outcome: string;
+    actual_method: string | null;
+    p_actual_winner: number | null;
+    favourite_correct: boolean | null;
+    model_version: string;
+    status: "scored" | "void";
+  }[];
+  next_event: string | null;
+  next_event_date: string | null;
 }
 
 export type Method = "KO/TKO" | "SUB" | "DEC";
@@ -211,6 +253,7 @@ export const api = {
   searchFighters: (q: string) => get<FighterSearchResult[]>("/api/fighters/search", { q }),
   matchup: (a: number, b: number, asOf?: string) =>
     get<MatchupComparison>("/api/matchups", { fighterA: a, fighterB: b, asOf }),
+  trackRecord: () => get<TrackRecord>("/api/track-record"),
   predictMatchup: (a: number, b: number, asOf: string | undefined, scheduledRounds: 3 | 5, titleBout: boolean) =>
     post<Prediction>("/api/predictions/matchup", { fighterA: a, fighterB: b, asOf, scheduledRounds, titleBout }),
 };

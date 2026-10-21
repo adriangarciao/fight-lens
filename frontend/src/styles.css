@@ -251,3 +251,21 @@ h3 { font-size: 20px; font-weight: 800; }
 .rounds-toggle { display: inline-flex; border: 1px solid var(--ink-3); }
 .rounds-toggle button { background: none; border: 0; padding: 4px 10px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
 .rounds-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+/* Track record */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 24px 0 8px; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; border-right: 1px solid var(--rule); }
+.tile:last-child { border-right: 0; }
+.tile-value { font-family: var(--display); font-weight: 900; font-size: 44px; line-height: 0.9; }
+.results-table { width: 100%; border-collapse: collapse; }
+.results-table th { text-align: left; font-weight: 500; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--ink); }
+.results-table td { padding: 10px 8px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.results-table a { text-decoration: none; font-weight: 600; }
+.results-table a:hover { color: var(--hot); }
+.hit { color: var(--win); font-weight: 600; }
+.miss { color: var(--loss); font-weight: 600; }
+@media (max-width: 720px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .tile:nth-child(2) { border-right: 0; }
+  .results-table th:first-child, .results-table td:first-child { display: none; }
+}

@@ -27,6 +27,11 @@ def main(argv: list[str] | None = None) -> int:
     act = sub.add_parser("activate", help="Make an existing model version active")
     act.add_argument("version")
     sub.add_parser("predict", help="Store predictions for all scheduled bouts (active model)")
+    sub.add_parser("score", help="Score stored predictions against results (track record)")
+    sub.add_parser(
+        "refresh",
+        help="Scheduled job: fetch, import, score finished bouts, predict new ones (no retraining)",
+    )
 
     args = parser.parse_args(argv)
     settings = get_settings()
@@ -97,6 +102,31 @@ def main(argv: list[str] | None = None) -> int:
 
         with SessionLocal() as session:
             print(json.dumps(batch_predict_scheduled(session), indent=2))
+        return 0
+
+    if args.command == "score":
+        from app.services.track_record import score_predictions
+
+        with SessionLocal() as session:
+            print(json.dumps(score_predictions(session), indent=2))
+        return 0
+
+    if args.command == "refresh":
+        from app.ingestion.fightr import fetch_snapshot, import_snapshot
+        from app.services.predictions import NoActiveModel, batch_predict_scheduled
+        from app.services.track_record import score_predictions
+
+        snapshot = fetch_snapshot(settings.data_dir)
+        summary: dict = {"snapshot": str(snapshot)}
+        with SessionLocal() as session:
+            # Score before predicting so a finished bout is judged on its pre-fight prediction.
+            summary["import"] = import_snapshot(session, snapshot).stats()
+            summary["score"] = score_predictions(session)
+            try:
+                summary["predict"] = batch_predict_scheduled(session)
+            except NoActiveModel as exc:
+                summary["predict"] = {"skipped": str(exc)}
+        print(json.dumps(summary, indent=2))
         return 0
     return 1
 

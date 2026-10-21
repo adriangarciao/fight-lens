@@ -27,6 +27,7 @@ uv run fightlens import --report import-report.json
 uv run fightlens import-odds                 # optional: bookmaker odds, benchmark only (never a feature)
 uv run fightlens train --activate            # backtest + fit (~1 min); writes docs/model-report.md
 uv run fightlens predict                     # store predictions for scheduled bouts
+uv run fightlens score                       # score stored predictions once results arrive
 uv run uvicorn app.main:app --reload         # http://localhost:8000/docs
 
 # 3. Frontend (new terminal)
@@ -64,6 +65,11 @@ Importing is idempotent. Completed results are immutable: a changed result is re
 | `GET /api/matchups/history?fighterA=&fighterB=` | Head-to-head only |
 | `POST /api/predictions/matchup` | Any pairing: win probability, six-outcome distribution, reasons, unknowns, data confidence |
 | `GET /api/predictions/{boutId}` | Stored batch prediction for a bout (computed live if missing) |
+| `GET /api/track-record` | Live record of pre-fight predictions vs. results |
+
+## Keeping it current
+
+`uv run fightlens refresh` is the job to schedule (e.g. daily cron). It downloads a new snapshot, imports it, scores finished bouts against their pre-fight predictions, and stores predictions for newly scheduled bouts. It never retrains: run `fightlens train` deliberately, review `docs/model-report.md`, then `fightlens activate`. Only predictions stored before fight day count toward the track record ([ADR 0004](docs/adr/0004-live-track-record.md)).
 
 ## Model
 
@@ -74,4 +80,4 @@ See [docs/adr/0003-baseline-model-design.md](docs/adr/0003-baseline-model-design
 - [x] **Phase 1:** data audit, schema + migrations, idempotent importer, comparison API and page
 - [x] **Phase 2:** time-correct features, Elo + logistic baselines, CatBoost challenger, calibration, conditional method model, versioned artifacts, evaluation report
 - [ ] **Phase 3:** stat visualizations, richer evidence views, mobile polish (predictions on cards are done)
-- [ ] **Phase 4:** sourced injury context, rankings history, prediction-vs-result tracking
+- [ ] **Phase 4:** sourced injury context, rankings history (prediction-vs-result tracking is done)
