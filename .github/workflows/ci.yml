@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      FIGHTLENS_DATABASE_URL: postgresql+psycopg://fightlens:fightlens@localhost:5432/fightlens
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fightlens
+          POSTGRES_PASSWORD: fightlens
+          POSTGRES_DB: fightlens
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U fightlens" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run pytest
+      - name: Migrations apply cleanly on PostgreSQL
+        run: uv run alembic upgrade head && uv run alembic downgrade base && uv run alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build

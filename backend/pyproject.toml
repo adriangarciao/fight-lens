@@ -1,0 +1,54 @@
+[project]
+name = "fightlens"
+version = "0.1.0"
+description = "UFC matchup analysis and prediction API"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "httpx>=0.27",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "scikit-learn>=1.5",
+    "catboost>=1.2",
+    "joblib>=1.4",
+]
+
+[project.scripts]
+fightlens = "app.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Fixture rows read better as one bout per line.
+"tests/conftest.py" = ["E501"]
+"tests/test_ml.py" = ["E501"]
+# User-facing prose (evaluation report, explanation and unknown-factor messages).
+"app/ml/train.py" = ["E501"]
+"app/ml/predict.py" = ["E501"]
