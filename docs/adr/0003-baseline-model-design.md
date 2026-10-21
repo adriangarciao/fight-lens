@@ -28,3 +28,13 @@
 - Common-opponent features: Elo already uses those same bouts, so adding both would count them twice.
 - Hype and popularity (handoff §3), and bookmaker odds as features.
 - Per-bout striking/grappling statistics: there's no permitted source yet.
+
+## Addendum (2026-10-20): betting-market benchmark
+
+Bookmaker odds from the Ultimate UFC Dataset are imported with `fightlens import-odds` into their own table, `benchmark_odds`. They're used **only** to score the backtest against the market:
+
+- They're never a feature, a training target or a calibration input, and they never appear in the API or UI. `tests/test_benchmark.py` checks statically that no module on the feature, model or inference path imports `app.benchmarks` or references odds. It also checks dynamically that training rows are byte-identical with and without odds imported.
+- Odds rows join to bouts by date (±1 day) and names, with exact, spelling-variant or reordered-name matching. A row is dropped if its recorded winner disagrees with the bout. Re-imports remove matches the source no longer supports.
+- The margin is removed proportionally. There's deliberately no betting-return analysis.
+
+First result (4,591 shared backtest bouts): market log loss 0.607 and 66.5% accuracy, versus 0.657 and 60.5% for the model. The gap is the information the market has and the model lacks. Closing it is a data problem (per-bout stats, injuries), not a modeling trick.

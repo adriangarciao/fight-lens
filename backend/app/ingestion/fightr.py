@@ -23,7 +23,8 @@ from app.ingestion.identity import IdentityResolver, RosterEntry
 
 SOURCE_KEY = "fightr"
 RAW_BASE_URL = "https://raw.githubusercontent.com/benyamindsmith/fightr/HEAD/data"
-FILES = ("ufc_fights.csv", "ufcstats_data.csv")
+# ultimate_ufc_dataset.csv carries bookmaker odds; it is only read by app.benchmarks.
+FILES = ("ufc_fights.csv", "ufcstats_data.csv", "ultimate_ufc_dataset.csv")
 
 
 def fetch_snapshot(data_dir: Path, today: date | None = None) -> Path:

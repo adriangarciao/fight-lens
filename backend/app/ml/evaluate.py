@@ -79,6 +79,9 @@ class BacktestResult:
     pooled: dict[str, dict] = field(default_factory=dict)
     calibration: dict[str, list[dict]] = field(default_factory=dict)
     method: dict[str, dict] = field(default_factory=dict)
+    # Out-of-sample predictions per bout, for benchmark comparisons on matching subsets.
+    bout_p_f1: dict[str, dict[int, float]] = field(default_factory=dict)
+    bout_methods: dict[str, dict[int, tuple[np.ndarray, np.ndarray]]] = field(default_factory=dict)
 
 
 def fit_winner(kind: str, train: list[TrainingRow], calib: list[TrainingRow]):
@@ -119,14 +122,24 @@ def backtest(
             p = fitted[kind].predict(Xs)
             preds[kind].append(p)
             _record(result, kind, year, p, ys_year)
+            result.bout_p_f1.setdefault(kind, {}).update(
+                {r.bout.bout_id: float(v) for r, v in zip(test, p, strict=True)}
+            )
 
         # Method model, conditional on the actual winner.
         Xm_train, ym_train = method_matrix(train + calib)
         test_m = [r for r in test if r.method_y is not None]
         Xm_test, ym_test = method_matrix(test_m)
         method_ys.extend(ym_test)
+        X_f1 = np.array([[r.method_x_f1[f] for f in METHOD_FEATURES] for r in test], dtype=float)
+        X_f2 = np.array([[r.method_x_f2[f] for f in METHOD_FEATURES] for r in test], dtype=float)
         for kind in method_kinds:
-            method_preds[kind].append(MethodModel(kind).fit(Xm_train, ym_train).predict(Xm_test))
+            mm = MethodModel(kind).fit(Xm_train, ym_train)
+            method_preds[kind].append(mm.predict(Xm_test))
+            d1, d2 = mm.predict(X_f1), mm.predict(X_f2)
+            result.bout_methods.setdefault(kind, {}).update(
+                {r.bout.bout_id: (d1[i], d2[i]) for i, r in enumerate(test)}
+            )
         counts = np.bincount(
             [METHOD_CLASSES.index(m) for m in ym_train], minlength=len(METHOD_CLASSES)
         )

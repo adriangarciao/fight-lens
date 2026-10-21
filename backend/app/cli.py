@@ -16,6 +16,12 @@ def main(argv: list[str] | None = None) -> int:
     imp = sub.add_parser("import", help="Import a raw snapshot (default: latest) into the database")
     imp.add_argument("snapshot", nargs="?", type=Path)
     imp.add_argument("--report", type=Path, help="Write the full issue report as JSON")
+    odds = sub.add_parser(
+        "import-odds", help="Import bookmaker odds as a benchmark (never a feature)"
+    )
+    odds.add_argument(
+        "csv", nargs="?", type=Path, help="Default: latest snapshot's ultimate_ufc_dataset.csv"
+    )
     tr = sub.add_parser("train", help="Backtest, fit and save a versioned model bundle")
     tr.add_argument("--activate", action="store_true", help="Make the new model the active one")
     act = sub.add_parser("activate", help="Make an existing model version active")
@@ -48,6 +54,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     from app.db.session import SessionLocal
+
+    if args.command == "import-odds":
+        from app.benchmarks.odds import import_odds
+        from app.ingestion.fightr import latest_snapshot
+
+        path = (
+            args.csv
+            or (latest_snapshot(settings.data_dir) or Path(".")) / "ultimate_ufc_dataset.csv"
+        )
+        if not path.exists():
+            print(f"{path} not found; run `fightlens fetch` first.", file=sys.stderr)
+            return 1
+        with SessionLocal() as session:
+            report = import_odds(session, path)
+        print(json.dumps(report.stats(), indent=2))
+        return 0
 
     if args.command == "train":
         from app.ml.train import train

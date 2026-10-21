@@ -324,8 +324,14 @@ class TrainingRow:
     bout: BoutRow
     winner_x: dict[str, float]  # oriented f1 vs f2
     f1_won: bool
-    method_x: dict[str, float] | None  # winner's perspective
+    method_x_f1: dict[str, float]  # P(method | fighter 1 wins) features
+    method_x_f2: dict[str, float]  # P(method | fighter 2 wins) features
     method_y: str | None
+
+    @property
+    def method_x(self) -> dict[str, float]:
+        """Features from the actual winner's perspective (the training target's)."""
+        return self.method_x_f1 if self.f1_won else self.method_x_f2
 
 
 def build_training_rows(
@@ -340,13 +346,13 @@ def build_training_rows(
                 continue
             ctx = Context(b.scheduled_rounds, b.is_title, b.division)
             s1, s2 = engine.snapshot(b.f1, on), engine.snapshot(b.f2, on)
-            sw, sl = (s1, s2) if b.winner == b.f1 else (s2, s1)
             rows.append(
                 TrainingRow(
                     bout=b,
                     winner_x=winner_features(s1, s2, engine.h2h_score(b.f1, b.f2, on), ctx),
                     f1_won=b.winner == b.f1,
-                    method_x=method_features(sw, sl, ctx),
+                    method_x_f1=method_features(s1, s2, ctx),
+                    method_x_f2=method_features(s2, s1, ctx),
                     method_y=b.method if b.method in METHOD_CLASSES else None,
                 )
             )

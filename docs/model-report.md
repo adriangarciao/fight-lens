@@ -1,6 +1,6 @@
-# Model evaluation: 20261017-logistic-af69f8
+# Model evaluation: 20261017-logistic-af69f8-r3
 
-Generated 2026-10-21T03:27:51Z. Data through 2026-10-17 (snapshot `dd9e0c59bb92`). Feature set `fs-1` (schema `af69f817125acfac`).
+Generated 2026-10-21T03:44:47Z. Data through 2026-10-17 (snapshot `dd9e0c59bb92`). Feature set `fs-1` (schema `af69f817125acfac`).
 
 ## Method
 
@@ -96,6 +96,34 @@ Selected K = 96.
 | `elo_diff_x_5rd` | +0.011 |
 | `decision_rate_diff` | +0.005 |
 | `height_diff` | -0.004 |
+
+## Benchmark: betting market (evaluation only, never a model input)
+
+4591 backtest bouts with moneylines from the Ultimate UFC Dataset (the source doesn't document when the lines were taken). The bookmaker margin (mean overround 4.0%) is removed proportionally. Every row below is scored on exactly the same bouts.
+
+| Predictor | Log loss | Brier | Accuracy |
+|---|---:|---:|---:|
+| market | 0.6065 | 0.2097 | 66.5% |
+| logistic **(selected model)** | 0.6570 | 0.2325 | 60.5% |
+| elo | 0.6816 | 0.2443 | 55.7% |
+| catboost | 0.6581 | 0.2331 | 60.7% |
+| coin_flip | 0.6931 | 0.2500 | 50.0% |
+
+- Market minus model log loss: -0.0506. The market is sharper, as expected: it prices in information the model doesn't have (camp news, injuries, styles).
+- The model and the market pick the same favourite in 71.3% of bouts. Mean absolute probability gap: 11.6%.
+- Six outcomes (winner × method), 4337 bouts with full method props: market log loss 1.5413, model 1.6152.
+
+### Market calibration (favourite's implied probability vs. how often the favourite won)
+
+| Bucket | Bouts | Mean implied | Observed |
+|---|---:|---:|---:|
+| 50%-55% | 730 | 52.4% | 51.6% |
+| 55%-60% | 902 | 57.6% | 57.4% |
+| 60%-65% | 793 | 62.4% | 63.3% |
+| 65%-70% | 761 | 67.3% | 67.4% |
+| 70%-75% | 597 | 72.4% | 75.2% |
+| 75%-80% | 430 | 77.4% | 83.7% |
+| 80%-100% | 378 | 83.9% | 89.9% |
 
 ## Known limitations
 

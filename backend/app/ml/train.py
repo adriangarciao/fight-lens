@@ -87,7 +87,9 @@ def train(session: Session, data_dir: Path, activate: bool = False) -> TrainResu
         "backtest_pooled": bt.pooled,
         "backtest_method": bt.method,
     }
-    report = render_report(metadata, bt, k_scores, winner)
+    market = _market_benchmark(session, bt, rows, winner_kind, method_kind)
+    metadata["market_benchmark"] = {k: v for k, v in market.items() if k != "market_calibration"}
+    report = render_report(metadata, bt, k_scores, winner, market)
     artifact_dir = save_bundle(
         data_dir / "artifacts" / version, ModelBundle(version, winner, method, metadata), report
     )
@@ -112,6 +114,16 @@ def train(session: Session, data_dir: Path, activate: bool = False) -> TrainResu
     return TrainResult(version, artifact_dir, report, activate)
 
 
+def _market_benchmark(session: Session, bt, rows, winner_kind: str, method_kind: str) -> dict:
+    """Evaluation-only comparison with bookmaker odds. The models above never see odds."""
+    from app.benchmarks.market import compare_to_market, lines_from_rows
+    from app.db.models import BenchmarkOdds
+
+    lines = lines_from_rows(session.scalars(select(BenchmarkOdds)))
+    truth = {r.bout.bout_id: (r.f1_won, r.method_y, r.bout.on.year) for r in rows}
+    return compare_to_market(bt, lines, truth, winner_kind, method_kind)
+
+
 def activate_version(session: Session, version: str) -> None:
     mv = session.scalar(select(ModelVersion).where(ModelVersion.version == version))
     if mv is None:
@@ -133,7 +145,9 @@ def _pct(x: float) -> str:
     return f"{x:.1%}"
 
 
-def render_report(meta: dict, bt: BacktestResult, k_scores: dict, winner) -> str:
+def render_report(meta: dict, bt: BacktestResult, k_scores: dict, winner, market: dict) -> str:
+    from app.benchmarks.market import render_section
+
     lines = [
         f"# Model evaluation: {meta['version']}",
         "",
@@ -215,8 +229,8 @@ def render_report(meta: dict, bt: BacktestResult, k_scores: dict, winner) -> str
             "|---|---:|",
             *[f"| `{f}` | {c:+.3f} |" for f, c in coefs],
         ]
+    lines += ["", *render_section(market, meta["winner_model"])]
     lines += [
-        "",
         "## Known limitations",
         "",
         "- No per-bout striking/grappling statistics in the source, so there are no opponent-adjusted style features yet.",

@@ -191,3 +191,31 @@ class Prediction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     model_version: Mapped[ModelVersion] = relationship()
+
+
+class BenchmarkOdds(Base):
+    """Bookmaker odds kept strictly as an evaluation benchmark.
+
+    Nothing in app.ml features, models or inference may read this table; tests enforce it.
+    Moneylines are American odds, mapped onto the bout's fighter1/fighter2 order.
+    """
+
+    __tablename__ = "benchmark_odds"
+    __table_args__ = (
+        UniqueConstraint("bout_id", "source_key", name="uq_benchmark_odds_bout_source"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bout_id: Mapped[int] = mapped_column(ForeignKey("bouts.id"), index=True)
+    source_key: Mapped[str] = mapped_column(String(50))
+    source_sha256: Mapped[str] = mapped_column(String(64))
+    match_method: Mapped[str] = mapped_column(String(20))  # exact / fuzzy
+    f1_moneyline: Mapped[float] = mapped_column(Float)
+    f2_moneyline: Mapped[float] = mapped_column(Float)
+    # Method props ("fighter wins by ..."), American odds; any may be missing.
+    f1_ko: Mapped[float | None] = mapped_column(Float)
+    f1_sub: Mapped[float | None] = mapped_column(Float)
+    f1_dec: Mapped[float | None] = mapped_column(Float)
+    f2_ko: Mapped[float | None] = mapped_column(Float)
+    f2_sub: Mapped[float | None] = mapped_column(Float)
+    f2_dec: Mapped[float | None] = mapped_column(Float)

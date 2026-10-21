@@ -52,3 +52,4 @@ select = ["E", "F", "I", "B", "UP"]
 # User-facing prose (evaluation report, explanation and unknown-factor messages).
 "app/ml/train.py" = ["E501"]
 "app/ml/predict.py" = ["E501"]
+"app/benchmarks/market.py" = ["E501"]

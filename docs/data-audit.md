@@ -23,6 +23,10 @@ Methods: Decision (U/S/M) 4,076 · KO/TKO 2,753 · Submission 1,694 · TKO Docto
 2. **Career aggregates are current, not pre-fight.** `ufcstats_data` and `ufc_athletes` stats are as of the scrape. They're used only for physical attributes.
 3. **`ultimate_ufc_dataset`.** Some "career" columns (e.g. `longest_win_streak`, `total_title_bouts`, `win_by_*`) aren't documented as strictly pre-bout. It also carries odds. Excluded from features.
 
+## Bookmaker odds (benchmark only)
+
+`ultimate_ufc_dataset.csv` (identical in TidyTuesday and fightr; 7,177 bouts, 2010-03-21 → 2026-03-28) has moneylines for 96.7% of rows and method props for about 81%. 6,702 rows matched bouts: 121 by spelling-variant or reordered-name matching, 220 unmatched (mostly name changes such as Tecia Torres → Tecia Pennington), 2 dropped for winner disagreement. The source doesn't document when lines were taken.
+
 ## Identity
 
 The roster file has 9 names belonging to two different people (Bruno Silva, Jean Silva, Michael McDonald, Anthony Figueroa, Anthony Romero, Joey Gomez, Mike Davis, Tony Johnson, Victor Valenzuela). Bruno Silva is confirmed to have UFC bouts for both people (flyweight and middleweight). Ambiguous names are resolved by nearest listed weight to the bout's division, and every such assignment is written to the import report.
