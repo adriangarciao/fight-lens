@@ -154,3 +154,61 @@ def test_headline_uses_latest_pre_fight_prediction_per_bout(loaded):
     assert tr.headline.accuracy == 1.0 and tr.headline.log_loss == pytest.approx(-math.log(0.7))
     assert {r.model_version: r.metrics.n for r in tr.by_model_version} == {"v-old": 1, "v-new": 1}
     assert tr.calibration[0].bucket == "70%-75%" and tr.calibration[0].observed == 1.0
+
+
+def test_late_replacement_replaces_stale_prediction(client, loaded, tmp_path):
+    _activate(loaded, save_bundle(tmp_path / "m", _bundle(synthetic_league()), "# r"))
+    predictions.batch_predict_scheduled(loaded)
+    first = loaded.scalar(select(Prediction))
+    charlie = fighter_id(loaded, "Charlie Cole")
+    assert charlie in (first.fighter_a_id, first.fighter_b_id)
+
+    # Fight week: Charlie Cole withdraws, Delta Dunn steps in (same bout record upstream).
+    rows = default_bouts()
+    rows[-1] = bout(
+        "b10",
+        "UFC 999",
+        "January 01, 2099",
+        "Alpha Ace",
+        "",
+        "Delta Dunn",
+        "",
+        "UFC Welterweight Title Bout",
+        fmt="5 Rnd (5-5-5-5-5)",
+    )
+    import_snapshot(loaded, write_snapshot(tmp_path / "next", rows))
+    summary = predictions.batch_predict_scheduled(loaded)
+    assert (summary["created"], summary["replaced_stale"]) == (1, 1)
+    preds = loaded.scalars(select(Prediction)).all()
+    assert len(preds) == 1
+    delta = fighter_id(loaded, "Delta Dunn")
+    assert {preds[0].fighter_a_id, preds[0].fighter_b_id} == {
+        fighter_id(loaded, "Alpha Ace"),
+        delta,
+    }
+    assert predictions.batch_predict_scheduled(loaded)["already_stored"] == 1
+
+    card = client.get(f"/api/events/{_bout(loaded, 'b10').event_id}").json()
+    assert card["bouts"][0]["prediction"] is not None
+
+
+def test_format_change_makes_prediction_stale(loaded, tmp_path):
+    _activate(loaded, save_bundle(tmp_path / "m", _bundle(synthetic_league()), "# r"))
+    predictions.batch_predict_scheduled(loaded)
+    rows = default_bouts()
+    rows[-1] = {**rows[-1], "time_format": "3 Rnd (5-5-5)"}  # demoted to three rounds
+    import_snapshot(loaded, write_snapshot(tmp_path / "next", rows))
+    assert predictions.batch_predict_scheduled(loaded)["replaced_stale"] == 1
+    assert loaded.scalar(select(Prediction)).scheduled_rounds == 3
+
+
+def test_prediction_for_wrong_pairing_is_never_scored(loaded):
+    mv = _mv(loaded)
+    b = _bout(loaded, "b07")  # Alpha vs Bravo, Alpha won
+    pred = _predict(loaded, b, mv, 0.9, datetime(2024, 8, 1, tzinfo=UTC))
+    pred.fighter_b_id = fighter_id(loaded, "Delta Dunn")  # made for a fight that didn't happen
+    loaded.commit()
+    assert score_predictions(loaded)["void"] == 1
+    res = loaded.scalar(select(PredictionResult))
+    assert (res.status, res.actual_outcome, res.log_loss) == ("void", "pairing_changed", None)
+    assert track_record(loaded).headline.n == 0

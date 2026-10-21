@@ -54,7 +54,12 @@ def score_predictions(session: Session) -> dict:
             actual_outcome=bout.outcome,
             actual_method=bout.method,
         )
-        if bout.outcome != "win":
+        pair = {p.fighter_a_id, p.fighter_b_id}
+        if pair != {bout.fighter1_id, bout.fighter2_id}:
+            # Made for a pairing that didn't happen (late replacement): never scored.
+            result.status = "void"
+            result.actual_outcome = "pairing_changed"
+        elif bout.outcome != "win":
             result.status = "void"
         else:
             p_win = p.p_a if bout.winner_id == p.fighter_a_id else 1 - p.p_a

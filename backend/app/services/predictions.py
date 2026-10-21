@@ -196,6 +196,15 @@ def _to_schema(
     )
 
 
+def matches_bout(pred: Prediction, bout: Bout) -> bool:
+    """A stored prediction is only valid for the pairing and format it was made for.
+
+    Late replacements and format changes (e.g. promoted to five rounds) make it stale.
+    """
+    same_pair = {pred.fighter_a_id, pred.fighter_b_id} == {bout.fighter1_id, bout.fighter2_id}
+    return same_pair and pred.scheduled_rounds == bout.scheduled_rounds
+
+
 def predict_bout(session: Session, bout_id: int) -> PredictionOut | None:
     """Stored prediction for the active model if the batch job made one, else computed live."""
     bout = session.get(
@@ -213,7 +222,7 @@ def predict_bout(session: Session, bout_id: int) -> PredictionOut | None:
             Prediction.as_of == bout.event.event_date,
         )
     )
-    if stored is not None:
+    if stored is not None and matches_bout(stored, bout):
         return PredictionOut.model_validate(
             {**stored.payload, "stored": True, "in_sample": stored.as_of <= mv.trained_through}
         )
@@ -237,19 +246,25 @@ def batch_predict_scheduled(session: Session) -> dict:
         .options(joinedload(Bout.event), joinedload(Bout.fighter1), joinedload(Bout.fighter2))
         .where(Bout.status == "scheduled")
     ).all()
-    created = skipped = 0
+    created = skipped = replaced = 0
     for bout in bouts:
         as_of = bout.event.event_date
-        exists = session.scalar(
-            select(Prediction.id).where(
+        existing = session.scalar(
+            select(Prediction).where(
                 Prediction.bout_id == bout.id,
                 Prediction.model_version_id == mv.id,
                 Prediction.as_of == as_of,
             )
         )
-        if exists:
-            skipped += 1
-            continue
+        if existing is not None:
+            if matches_bout(existing, bout):
+                skipped += 1
+                continue
+            # The bout changed (replacement opponent or format) before it was fought; the old
+            # prediction describes a fight that won't happen, so it is replaced, not kept.
+            session.delete(existing)
+            session.flush()
+            replaced += 1
         out = predict_matchup(
             session,
             bout.fighter1,
@@ -276,7 +291,12 @@ def batch_predict_scheduled(session: Session) -> dict:
         )
         created += 1
     session.commit()
-    return {"model_version": mv.version, "created": created, "already_stored": skipped}
+    return {
+        "model_version": mv.version,
+        "created": created,
+        "already_stored": skipped,
+        "replaced_stale": replaced,
+    }
 
 
 def card_predictions(session: Session, bout_ids: list[int]) -> dict[int, CardPrediction]:
@@ -289,7 +309,8 @@ def card_predictions(session: Session, bout_ids: list[int]) -> dict[int, CardPre
     if not bout_ids:
         return {}
     mv = session.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
-    status = dict(session.execute(select(Bout.id, Bout.status).where(Bout.id.in_(bout_ids))).all())
+    bouts_by_id = {b.id: b for b in session.scalars(select(Bout).where(Bout.id.in_(bout_ids)))}
+    status = {bid: b.status for bid, b in bouts_by_id.items()}
     results = {
         r.prediction_id: r
         for r in session.scalars(
@@ -310,7 +331,9 @@ def card_predictions(session: Session, bout_ids: list[int]) -> dict[int, CardPre
         if status[p.bout_id] == "completed":
             if result is None or result.timing != "pre_fight":
                 continue
-        elif mv is None or p.model_version_id != mv.id:
+        elif (
+            mv is None or p.model_version_id != mv.id or not matches_bout(p, bouts_by_id[p.bout_id])
+        ):
             continue
         best = max(p.payload["outcomes"], key=lambda o: o["probability"])
         name = (

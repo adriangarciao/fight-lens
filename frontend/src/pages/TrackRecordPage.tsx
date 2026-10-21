@@ -102,7 +102,9 @@ export function TrackRecordPage() {
                       </td>
                       <td className="small">
                         {r.status === "void"
-                          ? r.actual_outcome === "draw" ? "Draw" : "No contest"
+                          ? { draw: "Draw", no_contest: "No contest", pairing_changed: "Opponent changed" }[
+                              r.actual_outcome
+                            ] ?? r.actual_outcome
                           : `${r.winner?.name} by ${METHOD_LABEL[r.actual_method ?? ""] ?? r.actual_method}`}
                       </td>
                       <td className="mono">
