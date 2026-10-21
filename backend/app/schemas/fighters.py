@@ -53,6 +53,28 @@ class Physical(BaseModel):
     stance: str | None
 
 
+class StyleStats(BaseModel):
+    """Raw per-fight stat rates over a set of UFC bouts (as UFCStats reports them)."""
+
+    fights: int
+    minutes: float
+    slpm: float  # significant strikes landed per minute
+    sapm: float  # significant strikes absorbed per minute
+    str_acc: float | None
+    str_def: float | None
+    td15: float
+    td_acc: float | None
+    td_def: float | None
+    kd15: float
+    sub15: float
+    ctrl_share: float  # share of fight time in control
+
+
+class StyleSummary(BaseModel):
+    career: StyleStats | None
+    last5: StyleStats | None
+
+
 class FighterSummary(BaseModel):
     fighter: FighterRef
     as_of: date
@@ -66,6 +88,7 @@ class FighterSummary(BaseModel):
     years_in_ufc: float | None
     latest_division: str | None
     recent_fights: list[FightRecord]
+    style: StyleSummary
     limited_data: list[str]
 
 

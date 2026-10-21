@@ -24,6 +24,7 @@ uv sync
 uv run alembic upgrade head
 uv run fightlens fetch                       # download a fightr snapshot to ../data/raw/
 uv run fightlens import --report import-report.json
+uv run fightlens import-stats                # per-fight striking/grappling stats (fetches latest)
 uv run fightlens import-odds                 # optional: bookmaker odds, benchmark only (never a feature)
 uv run fightlens train --activate            # backtest + fit (~1 min); writes docs/model-report.md
 uv run fightlens predict                     # store predictions for scheduled bouts
@@ -48,7 +49,7 @@ The bootstrap source is the [fightr](https://github.com/benyamindsmith/fightr) d
 
 - Bouts store fighters in **source order, which is correlated with the result**. It is not a corner and must never be used as a signal.
 - Roster career aggregates are as-of-scrape and **leak future information**. Only static physical attributes are imported.
-- There are **no per-bout striking/grappling stats** yet; the UI labels them unavailable.
+- Per-fight striking/grappling stats come from [Greco1899/scrape_ufc_stats](https://github.com/Greco1899/scrape_ufc_stats) (UFCStats data). Injuries, weight cuts and camp news aren't included.
 - Every history query takes an `as_of` date and only sees bouts strictly before it.
 
 Importing is idempotent. Completed results are immutable: a changed result is reported as `result_changed`, not applied.
@@ -73,7 +74,7 @@ Importing is idempotent. Completed results are immutable: a changed result is re
 
 ## Model
 
-See [docs/adr/0003-baseline-model-design.md](docs/adr/0003-baseline-model-design.md) and the latest [evaluation report](docs/model-report.md). On the first run (rolling backtest, 2016–2026, 5,329 bouts), the selected logistic model scored log loss 0.658, Brier 0.233 and 60.3% accuracy. For comparison, Elo scored 0.682 and 55.7%, and a coin flip 0.693 and 50%. The betting market scored 0.607 and 66.5% on the 4,591 backtest bouts that have odds. Odds are only used as a benchmark: they never feed the model, and a test enforces that. Models are versioned bundles under `data/artifacts/`. Use `fightlens activate <version>` to switch between them. The API refuses a bundle whose feature schema doesn't match the code.
+See [docs/adr/0003-baseline-model-design.md](docs/adr/0003-baseline-model-design.md) and the latest [evaluation report](docs/model-report.md). With per-fight stats (feature set fs-2; rolling backtest, 2016–2026, 5,329 bouts), the selected logistic model scores log loss 0.646, Brier 0.227 and 62.5% accuracy. Without stats it scored 0.658 and 60.3%; Elo scores 0.682 and 55.7%, and a coin flip 0.693 and 50%. The betting market scores 0.607 and 66.5% on the 4,591 backtest bouts that have odds (the model scores 0.643 on that subset). Odds are only used as a benchmark: they never feed the model, and a test enforces that. Models are versioned bundles under `data/artifacts/`. Use `fightlens activate <version>` to switch between them. The API refuses a bundle whose feature schema doesn't match the code.
 
 ## Roadmap
 

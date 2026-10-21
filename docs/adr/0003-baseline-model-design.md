@@ -27,7 +27,18 @@
 
 - Common-opponent features: Elo already uses those same bouts, so adding both would count them twice.
 - Hype and popularity (handoff §3), and bookmaker odds as features.
-- Per-bout striking/grappling statistics: there's no permitted source yet.
+- Injuries, weight cuts and camp news: there's no historical source to validate them against (set aside on 2026-10-21).
+
+## Addendum (2026-10-21): per-fight stats (feature set fs-2)
+
+Per-round UFCStats statistics, published by [Greco1899/scrape_ufc_stats](https://github.com/Greco1899/scrape_ufc_stats), are imported with `fightlens import-stats` (also part of `refresh`) into `fighter_bout_stats`. They join to bouts exactly through the fight-details URL. 8,925 of 8,948 completed bouts have stats.
+
+- `app/ml/style.py` builds style rates: strikes landed/absorbed per minute, accuracy, defense, takedowns, control share, knockdowns and submission attempts. They're recency-weighted and **shrunk toward the league average as of that date**, accumulated from earlier bouts only, so the prior can't leak future information.
+- **Opponent adjustment:** each past fight's output is compared with what that opponent allowed (or landed) *before* that fight.
+- Two matchup terms combine both fighters' styles: expected net striking, and takedown offense against the opponent's defense.
+- **Ablation** (same logistic model with and without stats, rolling backtest): log loss 0.6583 → 0.6455, accuracy 60.3% → 62.5%. The gap to the betting market shrank from 0.051 to 0.037. The method model improved too (joint six-outcome log loss 1.620 → 1.593). See `docs/model-report.md`.
+- Explanations group the striking, power and grappling inputs, because the raw and opponent-adjusted rates are collinear.
+- The UI shows raw career and last-5 rates as UFCStats reports them. The model's adjusted values stay internal, to avoid showing two different "strikes per minute" numbers.
 
 ## Addendum (2026-10-20): betting-market benchmark
 

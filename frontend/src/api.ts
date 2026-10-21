@@ -38,6 +38,21 @@ export interface FightRecord {
   days_before_as_of: number;
 }
 
+export interface StyleStats {
+  fights: number;
+  minutes: number;
+  slpm: number;
+  sapm: number;
+  str_acc: number | null;
+  str_def: number | null;
+  td15: number;
+  td_acc: number | null;
+  td_def: number | null;
+  kd15: number;
+  sub15: number;
+  ctrl_share: number;
+}
+
 export interface FighterSummary {
   fighter: FighterRef;
   as_of: string;
@@ -61,6 +76,7 @@ export interface FighterSummary {
   years_in_ufc: number | null;
   latest_division: string | null;
   recent_fights: FightRecord[];
+  style: { career: StyleStats | null; last5: StyleStats | null };
   limited_data: string[];
 }
 

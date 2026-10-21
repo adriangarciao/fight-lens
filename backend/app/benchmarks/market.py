@@ -138,7 +138,7 @@ def render_section(cmp: dict, selected_winner: str) -> list[str]:
         "",
         f"- Market minus model log loss: {-gap:+.4f}. "
         + (
-            "The market is sharper, as expected: it prices in information the model doesn't have (camp news, injuries, styles)."
+            "The market is sharper, as expected: it prices in information the model doesn't have (injuries, weight cuts, camp news, fight footage)."
             if gap > 0
             else "The model matches or beats the market on this subset."
         ),

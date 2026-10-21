@@ -7,7 +7,6 @@ the bout's result, since a mis-joined benchmark would be worse than none.
 """
 
 import csv
-import difflib
 import hashlib
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -17,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import BenchmarkOdds, Bout
-from app.ingestion.normalize import clean, name_key, parse_date
+from app.ingestion.normalize import clean, name_key, name_similarity, parse_date
 
 SOURCE_KEY = "ultimate_ufc_dataset"
 FUZZY_MIN_RATIO = 0.85
@@ -145,16 +144,6 @@ def import_odds(session: Session, path: Path) -> OddsImportReport:
     return report
 
 
-def _similarity(a: str, b: str) -> float:
-    """Best of plain and token-sorted similarity: handles both "Kara France" vs "Kara-France"
-    and reordered names such as "Ning Guangyou" vs "Guangyou Ning"."""
-    plain = difflib.SequenceMatcher(None, a, b).ratio()
-    tokens = difflib.SequenceMatcher(
-        None, " ".join(sorted(a.split())), " ".join(sorted(b.split()))
-    ).ratio()
-    return max(plain, tokens)
-
-
 def _match(by_date: dict, on, red: str, blue: str):
     """Returns (bout, red_is_fighter1, "exact"|"fuzzy") or None."""
     rk, bk = name_key(red), name_key(blue)
@@ -176,7 +165,7 @@ def _match(by_date: dict, on, red: str, blue: str):
     for b in candidates:
         k1, k2 = name_key(b.fighter1.display_name), name_key(b.fighter2.display_name)
         for red_is_f1, (red_target, blue_target) in ((True, (k1, k2)), (False, (k2, k1))):
-            r_ratio, b_ratio = _similarity(rk, red_target), _similarity(bk, blue_target)
+            r_ratio, b_ratio = name_similarity(rk, red_target), name_similarity(bk, blue_target)
             # One name must match exactly; the other only closely (spelling variants).
             if max(r_ratio, b_ratio) == 1.0 and min(r_ratio, b_ratio) >= FUZZY_MIN_RATIO:
                 fuzzy.append((b, red_is_f1))

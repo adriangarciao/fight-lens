@@ -20,7 +20,7 @@ from app.ml.evaluate import (
     winner_matrix,
     winner_metrics,
 )
-from app.ml.models import EloModel, LogisticModel, MethodModel
+from app.ml.models import SELECTABLE_WINNER_MODELS, EloModel, LogisticModel, MethodModel
 
 ELO_K_GRID = (16, 32, 48, 64, 96, 128)
 K_SELECTION_LAST_YEAR = 2015  # K is tuned only on bouts before the first test year
@@ -56,8 +56,12 @@ def train(session: Session, data_dir: Path, activate: bool = False) -> TrainResu
     rows = F.build_training_rows(bouts, statics, elo_k)
     last = rows[-1].bout.on
 
-    bt = backtest(rows, list(range(FIRST_TEST_YEAR, last.year + 1)))
-    winner_kind = min(("elo", "logistic", "catboost"), key=lambda k: bt.pooled[k]["log_loss"])
+    bt = backtest(
+        rows,
+        list(range(FIRST_TEST_YEAR, last.year + 1)),
+        winner_kinds=(*SELECTABLE_WINNER_MODELS, "logistic_fs1"),
+    )
+    winner_kind = min(SELECTABLE_WINNER_MODELS, key=lambda k: bt.pooled[k]["log_loss"])
     method_kind = min(("logistic", "catboost"), key=lambda k: bt.method[k]["log_loss"])
 
     cal_start = last - timedelta(days=CALIBRATION_DAYS)
@@ -182,6 +186,15 @@ def render_report(meta: dict, bt: BacktestResult, k_scores: dict, winner, market
         lines.append(
             f"| {kind}{mark} | {m['n']} | {m['log_loss']:.4f} | {m['brier']:.4f} | {_pct(m['accuracy'])} |"
         )
+    if "logistic_fs1" in bt.pooled:
+        delta = bt.pooled["logistic"]["log_loss"] - bt.pooled["logistic_fs1"]["log_loss"]
+        lines += [
+            "",
+            f"**Ablation:** the same logistic model without per-fight striking/grappling stats "
+            f"(`logistic_fs1`) scores {bt.pooled['logistic_fs1']['log_loss']:.4f}. The stats change log loss "
+            f"by {delta:+.4f} ({'better' if delta < 0 else 'worse'}) and accuracy by "
+            f"{(bt.pooled['logistic']['accuracy'] - bt.pooled['logistic_fs1']['accuracy']) * 100:+.1f} points.",
+        ]
     lines += ["", "### Log loss by test year", ""]
     kinds = list(bt.per_year)
     lines += ["| Year | " + " | ".join(kinds) + " |", "|---:|" + "---:|" * len(kinds)]
@@ -233,7 +246,8 @@ def render_report(meta: dict, bt: BacktestResult, k_scores: dict, winner, market
     lines += [
         "## Known limitations",
         "",
-        "- No per-bout striking/grappling statistics in the source, so there are no opponent-adjusted style features yet.",
+        "- Injuries, weight cuts and camp news aren't included (no historical source to validate them against).",
+        "- Per-fight stats come from UFCStats via Greco1899/scrape_ufc_stats; a few early bouts lack them and fall back to league averages.",
         "- Common-opponent results aren't a feature: Elo already uses those same bouts, and adding both would count them twice.",
         "- Hype and popularity are excluded from the model, as the handoff requires.",
         "- Ages and reach come from current roster files. Static attributes are safe, but 104 fighters lack a DOB and 660 lack reach.",

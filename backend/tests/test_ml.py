@@ -12,11 +12,30 @@ import pytest
 from app.db.models import ModelVersion
 from app.ml import features as F
 from app.ml.artifacts import IncompatibleArtifact, ModelBundle, load_bundle, save_bundle
-from app.ml.data import BoutRow, FighterStatic
+from app.ml.data import BoutRow, FighterStatic, StatLine
 from app.ml.evaluate import backtest, method_matrix, winner_matrix
 from app.ml.models import CatBoostModel, LogisticModel, MethodModel, outcome_distribution
 from app.services import predictions
 from tests.conftest import fighter_id
+
+
+def _line(rng, skill, me, opp, seconds) -> StatLine:
+    """Plausible per-fight stats where higher hidden skill lands more and wrestles more."""
+    mins = seconds / 60
+    landed = max(0, int(mins * (3.5 + skill[me] - 0.5 * skill[opp]) + rng.gauss(0, 3)))
+    td = max(0, int(mins / 15 * (1 + skill[me]) + rng.random()))
+    return StatLine(
+        int(rng.random() < 0.1),
+        landed,
+        landed * 2 + 5,
+        td,
+        td + 2,
+        0,
+        int(mins * 20),
+        landed // 2,
+        landed // 4,
+        landed - landed // 2 - landed // 4,
+    )
 
 
 def synthetic_league(seed: int = 1, n_fighters: int = 80, start=2005, end=2012):
@@ -40,6 +59,12 @@ def synthetic_league(seed: int = 1, n_fighters: int = 80, start=2005, end=2012):
             outcome = "draw" if rng.random() < 0.01 else "win"
             winner = (a if rng.random() < p else b) if outcome == "win" else None
             method = rng.choices(["KO/TKO", "SUB", "DEC"], [0.3, 0.2, 0.5])[0] if winner else "DEC"
+            seconds = rng.randint(60, 900)
+            stats = (
+                (_line(rng, skill, a, b, seconds), _line(rng, skill, b, a, seconds))
+                if rng.random() < 0.95
+                else None
+            )
             bouts.append(
                 BoutRow(
                     bid,
@@ -53,6 +78,8 @@ def synthetic_league(seed: int = 1, n_fighters: int = 80, start=2005, end=2012):
                     rng.choice([3, 3, 3, 5]),
                     False,
                     "Lightweight",
+                    seconds,
+                    stats,
                 )
             )
             bid += 1
@@ -284,3 +311,45 @@ def test_incompatible_active_artifact_refuses_inference(client, loaded, league, 
     a, b = fighter_id(loaded, "Alpha Ace"), fighter_id(loaded, "Bravo Bell")
     res = client.post("/api/predictions/matchup", json={"fighterA": a, "fighterB": b})
     assert res.status_code == 503 and "different feature schema" in res.json()["detail"]
+
+
+def test_every_winner_feature_is_explained_exactly_once():
+    from app.ml.predict import REASON_GROUPS
+
+    grouped = [f for members in REASON_GROUPS.values() for f in members]
+    assert sorted(grouped) == sorted(F.WINNER_FEATURES)
+
+
+def test_later_stats_never_change_earlier_features(league):
+    bouts, statics = league
+    cutoff = date(2009, 6, 1)
+    full = [r for r in F.build_training_rows(bouts, statics) if r.bout.on < cutoff]
+    tampered = [
+        replace(b, stats=(b.stats[1], b.stats[0]), seconds=b.seconds + 300)
+        if b.on >= cutoff and b.stats
+        else b
+        for b in bouts
+    ]
+    early = [r for r in F.build_training_rows(tampered, statics) if r.bout.on < cutoff]
+    assert all(_same(x.winner_x, y.winner_x) for x, y in zip(full, early, strict=True))
+    assert repr([r.method_x_f1 for r in full]) == repr([r.method_x_f1 for r in early])
+
+
+def test_style_starts_from_fallback_priors_and_learns(league):
+    from app.ml.style import FALLBACK
+
+    bouts, statics = league
+    first = F.build_training_rows(bouts, statics)[0]
+    assert first.winner_x["slpm_diff"] == 0 and first.winner_x["stats_minutes_diff"] == 0
+    assert first.method_x_f1["w_slpm"] == pytest.approx(FALLBACK["slpm"])
+
+    # By the end, opponent-adjusted striking ranks fighters roughly by hidden skill.
+    engine = F.HistoryEngine(statics)
+    engine.replay(bouts)
+    end = bouts[-1].on
+    rng = random.Random(1)
+    skill = {i: rng.gauss(0, 1) for i in range(1, 81)}  # same draw as synthetic_league(seed=1)
+    top = sorted(skill, key=skill.get)[-10:]
+    bottom = sorted(skill, key=skill.get)[:10]
+    adj = lambda f: engine.snapshot(f, end).style.adj_str_off  # noqa: E731
+    assert sum(map(adj, top)) / 10 > sum(map(adj, bottom)) / 10

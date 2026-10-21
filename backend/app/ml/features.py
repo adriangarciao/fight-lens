@@ -18,15 +18,17 @@ from datetime import date
 
 from app.ingestion.normalize import DIVISION_LIMITS
 from app.ml.data import BoutRow, FighterStatic
+from app.ml.style import League, Style, StyleEntry, compute_style
 
-FEATURE_SET_VERSION = "fs-1"
+FEATURE_SET_VERSION = "fs-2"
 
 ELO_START = 1500.0
 DEFAULT_ELO_K = 32.0
 RECENCY_HALF_LIFE_DAYS = 730
 H2H_DECAY_DAYS = 730  # a six-year-old meeting keeps ~5% of a fresh one's weight
 
-WINNER_FEATURES = [
+# fs-1: results-only features. Kept as a named subset for the with/without-stats ablation.
+FS1_WINNER_FEATURES = [
     "elo_diff",
     "experience_diff",
     "age_diff",
@@ -51,6 +53,28 @@ WINNER_FEATURES = [
     "decision_rate_diff_x_5rd",
 ]
 
+# fs-2 adds per-fight striking and grappling style (see app/ml/style.py).
+STYLE_WINNER_FEATURES = [
+    "slpm_diff",
+    "sapm_diff",
+    "str_acc_diff",
+    "str_def_diff",
+    "td15_diff",
+    "td_acc_diff",
+    "td_def_diff",
+    "kd15_diff",
+    "kd_absorbed15_diff",
+    "sub15_diff",
+    "ctrl_share_diff",
+    "adj_str_off_diff",
+    "adj_str_def_diff",
+    "adj_td_off_diff",
+    "striking_matchup",
+    "wrestling_matchup",
+    "stats_minutes_diff",
+]
+WINNER_FEATURES = FS1_WINNER_FEATURES + STYLE_WINNER_FEATURES
+
 METHOD_CLASSES = ["KO/TKO", "SUB", "DEC"]
 METHOD_FEATURES = [
     "elo_diff",
@@ -65,6 +89,15 @@ METHOD_FEATURES = [
     "division_lbs",
     "is_womens",
     "five_rounds",
+    "w_kd15",
+    "w_sub15",
+    "w_td15",
+    "w_ctrl_share",
+    "w_slpm",
+    "l_kd_absorbed15",
+    "l_sapm",
+    "l_td_def",
+    "l_str_def",
 ]
 
 
@@ -89,6 +122,7 @@ class FighterState:
     elo: float = ELO_START
     bouts: list[PastBout] = field(default_factory=list)
     elo_history: list[float] = field(default_factory=list)  # Elo before each bout
+    style: list[StyleEntry] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -114,6 +148,7 @@ class Snapshot:
     height_in: float | None
     reach_in: float | None
     stance: str | None
+    style: Style
 
 
 @dataclass(frozen=True)
@@ -129,6 +164,7 @@ class HistoryEngine:
         self.elo_k = elo_k
         self.state: dict[int, FighterState] = defaultdict(FighterState)
         self.meetings: dict[frozenset, list[tuple[date, int | None]]] = defaultdict(list)
+        self.league = League()
         self.last_date: date | None = None
 
     # -- replay ---------------------------------------------------------------------------
@@ -155,9 +191,29 @@ class HistoryEngine:
         # Featurize-then-apply happens per date, so Elo updates within a date use pre-date
         # ratings for every bout (handles one-night tournaments without ordering effects).
         pre = {fid: self.state[fid].elo for b in group for fid in (b.f1, b.f2)}
+        on = group[0].on
+        with_stats = [b for b in group if b.stats is not None and b.seconds]
+        pre_style = {
+            fid: compute_style(self.state[fid].style, on, self.league)
+            for b in with_stats
+            for fid in (b.f1, b.f2)
+        }
         for b in group:
             self._apply(b, pre)
-        self.last_date = group[0].on
+        for b in with_stats:
+            minutes = b.seconds / 60
+            for fid, opp, mine, theirs in (
+                (b.f1, b.f2, *b.stats),
+                (b.f2, b.f1, *reversed(b.stats)),
+            ):
+                o = pre_style[opp]
+                self.state[fid].style.append(
+                    StyleEntry(on, minutes, mine, theirs, o.sapm, o.slpm, o.td_allowed15)
+                )
+        for b in with_stats:  # league priors only ever include already-applied bouts
+            for line in b.stats:
+                self.league.add(b.seconds / 60, line)
+        self.last_date = on
 
     def _apply(self, b: BoutRow, pre: dict[int, float]) -> None:
         if b.outcome == "no_contest":
@@ -229,6 +285,7 @@ class HistoryEngine:
             height_in=static.height_in,
             reach_in=static.reach_in,
             stance=static.stance,
+            style=compute_style(st.style, on, self.league),
         )
 
     def h2h_score(self, a: int, b: int, on: date) -> float:
@@ -273,6 +330,7 @@ def winner_features(sa: Snapshot, sb: Snapshot, h2h: float, ctx: Context) -> dic
         )
     elo_diff = sa.elo - sb.elo
     dec_diff = sa.decision_rate - sb.decision_rate
+    ya, yb = sa.style, sb.style
     return {
         "elo_diff": elo_diff,
         "experience_diff": math.log1p(sa.n_bouts) - math.log1p(sb.n_bouts),
@@ -297,6 +355,24 @@ def winner_features(sa: Snapshot, sb: Snapshot, h2h: float, ctx: Context) -> dic
         "southpaw_edge": edge,
         "elo_diff_x_5rd": elo_diff * five,
         "decision_rate_diff_x_5rd": dec_diff * five,
+        "slpm_diff": ya.slpm - yb.slpm,
+        "sapm_diff": ya.sapm - yb.sapm,
+        "str_acc_diff": ya.str_acc - yb.str_acc,
+        "str_def_diff": ya.str_def - yb.str_def,
+        "td15_diff": ya.td15 - yb.td15,
+        "td_acc_diff": ya.td_acc - yb.td_acc,
+        "td_def_diff": ya.td_def - yb.td_def,
+        "kd15_diff": ya.kd15 - yb.kd15,
+        "kd_absorbed15_diff": ya.kd_absorbed15 - yb.kd_absorbed15,
+        "sub15_diff": ya.sub15 - yb.sub15,
+        "ctrl_share_diff": ya.ctrl_share - yb.ctrl_share,
+        "adj_str_off_diff": ya.adj_str_off - yb.adj_str_off,
+        "adj_str_def_diff": ya.adj_str_def - yb.adj_str_def,
+        "adj_td_off_diff": ya.adj_td_off - yb.adj_td_off,
+        # Expected strikes landed per minute for each side given both styles, A minus B.
+        "striking_matchup": (ya.slpm + yb.sapm) / 2 - (yb.slpm + ya.sapm) / 2,
+        "wrestling_matchup": ya.td15 * (1 - yb.td_def) - yb.td15 * (1 - ya.td_def),
+        "stats_minutes_diff": math.log1p(ya.minutes) - math.log1p(yb.minutes),
     }
 
 
@@ -316,6 +392,15 @@ def method_features(sw: Snapshot, sl: Snapshot, ctx: Context) -> dict[str, float
         "division_lbs": float(DIVISION_LIMITS.get(division, float("nan"))),
         "is_womens": float(division.startswith("Women's")),
         "five_rounds": 1.0 if ctx.scheduled_rounds == 5 else 0.0,
+        "w_kd15": sw.style.kd15,
+        "w_sub15": sw.style.sub15,
+        "w_td15": sw.style.td15,
+        "w_ctrl_share": sw.style.ctrl_share,
+        "w_slpm": sw.style.slpm,
+        "l_kd_absorbed15": sl.style.kd_absorbed15,
+        "l_sapm": sl.style.sapm,
+        "l_td_def": sl.style.td_def,
+        "l_str_def": sl.style.str_def,
     }
 
 

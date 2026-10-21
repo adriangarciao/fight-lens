@@ -12,7 +12,12 @@ from catboost import CatBoostClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from app.ml.features import METHOD_CLASSES, METHOD_FEATURES, WINNER_FEATURES
+from app.ml.features import (
+    FS1_WINNER_FEATURES,
+    METHOD_CLASSES,
+    METHOD_FEATURES,
+    WINNER_FEATURES,
+)
 
 EPS = 1e-6
 
@@ -140,7 +145,38 @@ def _pool(X: np.ndarray):
     return Pool(X, feature_names=WINNER_FEATURES)
 
 
-WINNER_MODELS = {"elo": EloModel, "logistic": LogisticModel, "catboost": CatBoostModel}
+class SubsetModel:
+    """A model restricted to a subset of feature columns. Used for ablations (e.g. the same
+    logistic model without per-fight stats); columns stay antisymmetric, so symmetry holds."""
+
+    def __init__(self, base, features: list[str], name: str):
+        self.base = base
+        self.name = name
+        self.idx = [WINNER_FEATURES.index(f) for f in features]
+
+    @property
+    def calibrator(self) -> SlopeCalibrator:
+        return self.base.calibrator
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "SubsetModel":
+        self.base.fit(X[:, self.idx], y)
+        return self
+
+    def raw(self, X: np.ndarray) -> np.ndarray:
+        return self.base.raw(X[:, self.idx])
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.base.predict(X[:, self.idx])
+
+
+WINNER_MODELS = {
+    "elo": EloModel,
+    "logistic": LogisticModel,
+    "catboost": CatBoostModel,
+    # Ablation only, never selected for production: the fs-1 (results-only) feature set.
+    "logistic_fs1": lambda: SubsetModel(LogisticModel(), FS1_WINNER_FEATURES, "logistic_fs1"),
+}
+SELECTABLE_WINNER_MODELS = ("elo", "logistic", "catboost")
 
 
 class MethodModel:

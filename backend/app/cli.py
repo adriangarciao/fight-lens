@@ -16,6 +16,10 @@ def main(argv: list[str] | None = None) -> int:
     imp = sub.add_parser("import", help="Import a raw snapshot (default: latest) into the database")
     imp.add_argument("snapshot", nargs="?", type=Path)
     imp.add_argument("--report", type=Path, help="Write the full issue report as JSON")
+    st = sub.add_parser(
+        "import-stats", help="Fetch (unless a snapshot is given) and import per-fight stats"
+    )
+    st.add_argument("snapshot", nargs="?", type=Path)
     odds = sub.add_parser(
         "import-odds", help="Import bookmaker odds as a benchmark (never a feature)"
     )
@@ -59,6 +63,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     from app.db.session import SessionLocal
+
+    if args.command == "import-stats":
+        from app.ingestion.fight_stats import fetch_stats_snapshot, import_fight_stats
+
+        snapshot = args.snapshot or fetch_stats_snapshot(settings.data_dir)
+        with SessionLocal() as session:
+            report = import_fight_stats(session, snapshot)
+        print(json.dumps(report.stats(), indent=2))
+        return 0
 
     if args.command == "import-odds":
         from app.benchmarks.odds import import_odds
@@ -112,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "refresh":
+        from app.ingestion.fight_stats import fetch_stats_snapshot, import_fight_stats
         from app.ingestion.fightr import fetch_snapshot, import_snapshot
         from app.services.predictions import NoActiveModel, batch_predict_scheduled
         from app.services.track_record import score_predictions
@@ -121,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         with SessionLocal() as session:
             # Score before predicting so a finished bout is judged on its pre-fight prediction.
             summary["import"] = import_snapshot(session, snapshot).stats()
+            stats_snapshot = fetch_stats_snapshot(settings.data_dir)
+            summary["stats"] = import_fight_stats(session, stats_snapshot).stats()
             summary["score"] = score_predictions(session)
             try:
                 summary["predict"] = batch_predict_scheduled(session)

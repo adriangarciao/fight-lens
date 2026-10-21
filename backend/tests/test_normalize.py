@@ -134,3 +134,24 @@ def test_physical_parsers():
 )
 def test_infer_scheduled_rounds_labels_its_source(fmt, title, event, f1, f2, expected):
     assert n.infer_scheduled_rounds(fmt, title, event, f1, f2) == expected
+
+
+def test_stat_parsers():
+    assert n.parse_of("9 of 37") == (9, 37)
+    assert n.parse_of("---") is None
+    assert n.parse_int("3.0") == 3 and n.parse_int("3") == 3
+    assert n.parse_int("2.5") is None and n.parse_int("--") is None
+
+
+@pytest.mark.parametrize(
+    "fmt, rnd, t, expected",
+    [
+        ("3 Rnd (5-5-5)", 3, 300, 900),
+        ("5 Rnd (5-5-5-5-5)", 2, 15, 315),
+        ("1 Rnd + OT (12-3)", 2, 60, 780),
+        ("No Time Limit", 1, 1200, 1200),
+        ("3 Rnd (5-5-5)", 4, 10, None),
+    ],
+)
+def test_fight_seconds(fmt, rnd, t, expected):
+    assert n.fight_seconds(fmt, rnd, t) == expected

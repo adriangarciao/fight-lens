@@ -23,6 +23,10 @@ Methods: Decision (U/S/M) 4,076 · KO/TKO 2,753 · Submission 1,694 · TKO Docto
 2. **Career aggregates are current, not pre-fight.** `ufcstats_data` and `ufc_athletes` stats are as of the scrape. They're used only for physical attributes.
 3. **`ultimate_ufc_dataset`.** Some "career" columns (e.g. `longest_win_streak`, `total_title_bouts`, `win_by_*`) aren't documented as strictly pre-bout. It also carries odds. Excluded from features.
 
+## Per-fight statistics (Greco1899/scrape_ufc_stats, 2026-10-21)
+
+42,162 per-round rows covering 8,974 bouts (1994 → 2026-10-17). Joined through the fight-details URL: 8,925 of 8,948 completed bouts matched. Issues: 116 duplicate rows from renamed events (one fight listed under two event names, kept once), 42 empty rows from early events, 6 fighter rows that couldn't be assigned to a side, 4 ambiguous bouts (the 1997 Sakuraba–Silveira double bout), 8 fights not in the bout table. Counts are written as `0.0` in most of the file; the parser accepts whole-number floats. Control time is `--` for some early bouts and treated as 0 in totals. Same rights situation as the bout data (derived from UFCStats); the repository's code is GPL-3.0.
+
 ## Bookmaker odds (benchmark only)
 
 `ultimate_ufc_dataset.csv` (identical in TidyTuesday and fightr; 7,177 bouts, 2010-03-21 → 2026-03-28) has moneylines for 96.7% of rows and method props for about 81%. 6,702 rows matched bouts: 121 by spelling-variant or reordered-name matching, 220 unmatched (mostly name changes such as Tecia Torres → Tecia Pennington), 2 dropped for winner disagreement. The source doesn't document when lines were taken.

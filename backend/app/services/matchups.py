@@ -10,7 +10,7 @@ from app.services.history import NON_DIVISIONS, completed_bouts, event_ref, summ
 
 STANDING_NOTES = [
     "Common-opponent results are context, not proof: MMA results are not transitive.",
-    "Per-bout striking and grappling statistics are not available from the current data source.",
+    "Injuries, weight cuts and camp news aren't included in the data.",
     "Records count only UFC bouts present in the source data before the as-of date.",
 ]
 

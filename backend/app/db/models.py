@@ -249,3 +249,38 @@ class PredictionResult(Base):
     scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     prediction: Mapped[Prediction] = relationship()
+
+
+class FighterBoutStats(Base):
+    """Per-round striking/grappling stats for one fighter in one bout (UFCStats via Greco1899).
+
+    Derived data: re-imports may update rows. Only bouts *before* a prediction's date are ever
+    used for features.
+    """
+
+    __tablename__ = "fighter_bout_stats"
+    __table_args__ = (
+        UniqueConstraint("bout_id", "fighter_id", "round", name="uq_fighter_bout_stats_round"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bout_id: Mapped[int] = mapped_column(ForeignKey("bouts.id"), index=True)
+    fighter_id: Mapped[int] = mapped_column(ForeignKey("fighters.id"), index=True)
+    round: Mapped[int] = mapped_column(Integer)
+    kd: Mapped[int] = mapped_column(Integer)
+    sig_landed: Mapped[int] = mapped_column(Integer)
+    sig_attempted: Mapped[int] = mapped_column(Integer)
+    total_landed: Mapped[int] = mapped_column(Integer)
+    total_attempted: Mapped[int] = mapped_column(Integer)
+    td_landed: Mapped[int] = mapped_column(Integer)
+    td_attempted: Mapped[int] = mapped_column(Integer)
+    sub_attempts: Mapped[int] = mapped_column(Integer)
+    reversals: Mapped[int] = mapped_column(Integer)
+    ctrl_seconds: Mapped[int | None] = mapped_column(Integer)  # "--" in some early bouts
+    head_landed: Mapped[int] = mapped_column(Integer)
+    body_landed: Mapped[int] = mapped_column(Integer)
+    leg_landed: Mapped[int] = mapped_column(Integer)
+    distance_landed: Mapped[int] = mapped_column(Integer)
+    clinch_landed: Mapped[int] = mapped_column(Integer)
+    ground_landed: Mapped[int] = mapped_column(Integer)
+    source_sha256: Mapped[str] = mapped_column(String(64))

@@ -117,7 +117,26 @@ REASON_GROUPS = {
         "elo_trend_diff",
     ],
     "opposition": ["opp_elo_last5_diff"],
-    "experience": ["experience_diff", "debut_diff"],
+    "experience": ["experience_diff", "debut_diff", "stats_minutes_diff"],
+    "striking": [
+        "slpm_diff",
+        "sapm_diff",
+        "str_acc_diff",
+        "str_def_diff",
+        "adj_str_off_diff",
+        "adj_str_def_diff",
+        "striking_matchup",
+    ],
+    "power": ["kd15_diff", "kd_absorbed15_diff"],
+    "grappling": [
+        "td15_diff",
+        "td_acc_diff",
+        "td_def_diff",
+        "ctrl_share_diff",
+        "adj_td_off_diff",
+        "wrestling_matchup",
+        "sub15_diff",
+    ],
     "age": ["age_diff"],
     "reach": ["reach_diff"],
     "height": ["height_diff"],
@@ -162,7 +181,34 @@ def _reasons(contrib, feats, sa: Snapshot, sb: Snapshot, engine, a, b, as_of, na
             "Average Elo of last five opponents",
             vs(f"{sa.opp_elo_last5:.0f}", f"{sb.opp_elo_last5:.0f}"),
         ),
-        "experience": ("UFC experience", vs(f"{sa.n_bouts} bouts", f"{sb.n_bouts} bouts")),
+        "experience": (
+            "UFC experience",
+            vs(
+                f"{sa.n_bouts} bouts, {sa.style.minutes:.0f} min",
+                f"{sb.n_bouts} bouts, {sb.style.minutes:.0f} min",
+            ),
+        ),
+        "striking": (
+            "Striking (sig. strikes landed / absorbed per min, defense; recency-weighted, judged against opponent quality)",
+            vs(
+                f"{sa.style.slpm:.1f} / {sa.style.sapm:.1f}, {_fmt_pct(sa.style.str_def)}",
+                f"{sb.style.slpm:.1f} / {sb.style.sapm:.1f}, {_fmt_pct(sb.style.str_def)}",
+            ),
+        ),
+        "power": (
+            "Knockdowns per 15 min (landed / absorbed)",
+            vs(
+                f"{sa.style.kd15:.2f} / {sa.style.kd_absorbed15:.2f}",
+                f"{sb.style.kd15:.2f} / {sb.style.kd_absorbed15:.2f}",
+            ),
+        ),
+        "grappling": (
+            "Wrestling and control (takedowns per 15, takedown defense, control time; recency-weighted)",
+            vs(
+                f"{sa.style.td15:.1f}, {_fmt_pct(sa.style.td_def)}, {_fmt_pct(sa.style.ctrl_share)}",
+                f"{sb.style.td15:.1f}, {_fmt_pct(sb.style.td_def)}, {_fmt_pct(sb.style.ctrl_share)}",
+            ),
+        ),
         "age": (
             "Age at fight date",
             vs(opt(sa.age, lambda v: f"{v:.1f}"), opt(sb.age, lambda v: f"{v:.1f}")),
@@ -255,7 +301,7 @@ def _unknowns(sa: Snapshot, sb: Snapshot, names: tuple[str, str]) -> list[str]:
             items.append((3, f"{name}'s date of birth is unavailable."))
         if s.reach_in is None:
             items.append((4, f"{name}'s reach is unavailable."))
-    items.append((5, "No per-bout striking/grappling statistics or injury reports are included."))
+    items.append((5, "Injuries, weight cuts and camp news aren't included."))
     return [text for _, text in sorted(items)[:MAX_UNKNOWNS]]
 
 

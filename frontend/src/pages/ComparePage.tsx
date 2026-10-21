@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, type FighterRef, type FighterSummary, type MatchupComparison } from "../api";
+import { api, type FighterRef, type FighterSummary, type MatchupComparison, type StyleStats } from "../api";
 import { FighterPicker } from "../components/FighterPicker";
 import { PredictionPanel } from "../components/PredictionPanel";
 import { Timeline } from "../components/Timeline";
@@ -40,6 +40,67 @@ const TAPE: [string, (s: FighterSummary) => ReactNode][] = [
   ["UFC debut", (s) => (s.ufc_debut ? `${fmtDate(s.ufc_debut)} (${s.years_in_ufc}y)` : NA)],
 ];
 
+type StyleKey = Exclude<keyof StyleStats, "fights" | "minutes">;
+const pctOf = (x: number) => `${Math.round(x * 100)}%`;
+const STYLE_ROWS: [string, StyleKey, (x: number) => string][] = [
+  ["Sig. strikes landed / min", "slpm", (x) => x.toFixed(2)],
+  ["Sig. strikes absorbed / min", "sapm", (x) => x.toFixed(2)],
+  ["Striking accuracy", "str_acc", pctOf],
+  ["Striking defense", "str_def", pctOf],
+  ["Knockdowns / 15 min", "kd15", (x) => x.toFixed(2)],
+  ["Takedowns / 15 min", "td15", (x) => x.toFixed(2)],
+  ["Takedown accuracy", "td_acc", pctOf],
+  ["Takedown defense", "td_def", pctOf],
+  ["Control time share", "ctrl_share", pctOf],
+  ["Sub attempts / 15 min", "sub15", (x) => x.toFixed(2)],
+];
+
+function styleCell(s: FighterSummary, key: StyleKey, fmt: (x: number) => string) {
+  const career = s.style.career?.[key];
+  if (career == null) return NA;
+  const last5 = s.style.last5?.[key];
+  const showLast5 = last5 != null && s.style.career!.fights > s.style.last5!.fights;
+  return (
+    <>
+      {fmt(career)}
+      {showLast5 && <span className="muted small"> ({fmt(last5)})</span>}
+    </>
+  );
+}
+
+function StyleTable({ A, B }: { A: FighterSummary; B: FighterSummary }) {
+  const minutes = (s: FighterSummary) =>
+    s.style.career ? `${s.style.career.fights} fights, ${Math.round(s.style.career.minutes)} min` : "no stats";
+  return (
+    <>
+      <div className="section-head section">
+        <h2>Striking & grappling</h2>
+        <span className="mono small muted">career (last 5), raw per-fight stats</span>
+      </div>
+      <table className="tape">
+        <tbody>
+          <tr>
+            <td className="muted small">{minutes(A)}</td>
+            <td className="label">sample</td>
+            <td className="muted small">{minutes(B)}</td>
+          </tr>
+          {STYLE_ROWS.map(([label, key, fmt]) => (
+            <tr key={key}>
+              <td>{styleCell(A, key, fmt)}</td>
+              <td className="label">{label}</td>
+              <td>{styleCell(B, key, fmt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted">
+        Raw rates as UFCStats reports them. The model uses opponent-adjusted, recency-weighted versions of these, so
+        output against tough opponents counts for more.
+      </p>
+    </>
+  );
+}
+
 function Comparison({ m, rounds, title }: { m: MatchupComparison; rounds: 3 | 5; title: boolean }) {
   const { fighter_a: A, fighter_b: B } = m;
   const nameOf = (id: string) => (Number(id) === A.fighter.id ? A.fighter.name : B.fighter.name);
@@ -69,6 +130,8 @@ function Comparison({ m, rounds, title }: { m: MatchupComparison; rounds: 3 | 5;
           ))}
         </tbody>
       </table>
+      <StyleTable A={A} B={B} />
+
       <div className="two-col">
         <div className="flags">{A.limited_data.map((f) => <span className="flag" key={f}>{f}</span>)}</div>
         <div className="flags">{B.limited_data.map((f) => <span className="flag" key={f}>{f}</span>)}</div>

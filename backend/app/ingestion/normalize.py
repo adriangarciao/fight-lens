@@ -1,6 +1,7 @@
 """Pure parsing helpers for source rows. Each returns None for unparseable input rather than
 guessing; callers record those as missing fields in the ingestion report."""
 
+import difflib
 import re
 import unicodedata
 from datetime import date, datetime
@@ -51,6 +52,14 @@ def name_key(name: str) -> str:
     ascii_only = "".join(c for c in decomposed if not unicodedata.combining(c))
     ascii_only = ascii_only.replace("’", "'").replace(".", " ")
     return re.sub(r"\s+", " ", ascii_only).strip().lower()
+
+
+def name_similarity(a: str, b: str) -> float:
+    """Best of plain and token-sorted similarity of two name keys: handles "Kara France" vs
+    "Kara-France" and reordered names such as "Ning Guangyou" vs "Guangyou Ning"."""
+    plain = difflib.SequenceMatcher(None, a, b).ratio()
+    tokens = difflib.SequenceMatcher(None, " ".join(sorted(a.split())), " ".join(sorted(b.split())))
+    return max(plain, tokens.ratio())
 
 
 def parse_date(value: str | None) -> date | None:
@@ -183,3 +192,47 @@ def _parse_number(value: str) -> float | None:
         return float(value.strip())
     except ValueError:
         return None
+
+
+def parse_of(value: str | None) -> tuple[int, int] | None:
+    """'9 of 37' -> (9, 37)."""
+    value = clean(value)
+    if value is None:
+        return None
+    m = re.fullmatch(r"(\d+)\s+of\s+(\d+)", value)
+    return (int(m[1]), int(m[2])) if m else None
+
+
+def parse_int(value: str | None) -> int | None:
+    """'3' or '3.0' -> 3; fractional or non-numeric values -> None."""
+    value = clean(value)
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return int(number) if number.is_integer() and number >= 0 else None
+
+
+def round_lengths(time_format: str | None) -> list[int] | None:
+    """Round lengths in minutes: '3 Rnd (5-5-5)' -> [5, 5, 5]; '1 Rnd + OT (12-3)' -> [12, 3]."""
+    time_format = clean(time_format)
+    if time_format is None:
+        return None
+    m = re.search(r"\(([\d-]+)\)", time_format)
+    return [int(x) for x in m[1].split("-")] if m else None
+
+
+def fight_seconds(
+    time_format: str | None, end_round: int | None, end_time: int | None
+) -> int | None:
+    """Elapsed fight time from the format, final round and time into it."""
+    if end_round is None or end_time is None:
+        return None
+    lengths = round_lengths(time_format)
+    if lengths is None:
+        return end_time if end_round == 1 else None  # "No Time Limit" single-round fights
+    if end_round > len(lengths):
+        return None
+    return sum(lengths[: end_round - 1]) * 60 + end_time

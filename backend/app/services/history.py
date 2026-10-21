@@ -9,12 +9,21 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Bout, Event, Fighter
+from app.db.models import Bout, Event, Fighter, FighterBoutStats
+from app.ingestion.normalize import fight_seconds
 from app.schemas.common import EventRef, FighterRef, Record, Result
-from app.schemas.fighters import Activity, FighterSummary, FightRecord, Physical, Streak
+from app.schemas.fighters import (
+    Activity,
+    FighterSummary,
+    FightRecord,
+    Physical,
+    Streak,
+    StyleStats,
+    StyleSummary,
+)
 
 LONG_LAYOFF_DAYS = 365
 SHORT_TURNAROUND_DAYS = 60
@@ -158,6 +167,60 @@ def latest_division(records: list[FightRecord]) -> str | None:
     return next((r.division for r in records if r.division not in NON_DIVISIONS), None)
 
 
+def style_summary(session: Session, fighter_id: int, bouts: list[Bout]) -> StyleSummary:
+    """Career and last-five raw stat rates from the fighter's bouts (already before as-of)."""
+    mine = [b for b in bouts if fighter_id in (b.fighter1_id, b.fighter2_id)]
+    totals: dict[tuple[int, bool], dict[str, int]] = {}
+    if mine:
+        s = FighterBoutStats
+        for row in session.execute(
+            select(
+                s.bout_id,
+                s.fighter_id,
+                func.sum(s.sig_landed),
+                func.sum(s.sig_attempted),
+                func.sum(s.td_landed),
+                func.sum(s.td_attempted),
+                func.sum(s.kd),
+                func.sum(s.sub_attempts),
+                func.sum(func.coalesce(s.ctrl_seconds, 0)),
+            )
+            .where(s.bout_id.in_([b.id for b in mine]))
+            .group_by(s.bout_id, s.fighter_id)
+        ):
+            keys = ("sig_l", "sig_a", "td_l", "td_a", "kd", "sub", "ctrl")
+            totals[(row[0], row[1] == fighter_id)] = dict(zip(keys, map(int, row[2:]), strict=True))
+
+    usable = []  # newest first: (seconds, my totals, opponent totals)
+    for b in reversed(mine):
+        secs = fight_seconds(b.time_format, b.end_round, b.end_time_seconds)
+        if secs and (b.id, True) in totals and (b.id, False) in totals:
+            usable.append((secs, totals[(b.id, True)], totals[(b.id, False)]))
+
+    def rates(items) -> StyleStats | None:
+        if not items:
+            return None
+        minutes = sum(i[0] for i in items) / 60
+        me = {k: sum(i[1][k] for i in items) for k in items[0][1]}
+        opp = {k: sum(i[2][k] for i in items) for k in items[0][2]}
+        return StyleStats(
+            fights=len(items),
+            minutes=round(minutes, 1),
+            slpm=me["sig_l"] / minutes,
+            sapm=opp["sig_l"] / minutes,
+            str_acc=me["sig_l"] / me["sig_a"] if me["sig_a"] else None,
+            str_def=1 - opp["sig_l"] / opp["sig_a"] if opp["sig_a"] else None,
+            td15=me["td_l"] / minutes * 15,
+            td_acc=me["td_l"] / me["td_a"] if me["td_a"] else None,
+            td_def=1 - opp["td_l"] / opp["td_a"] if opp["td_a"] else None,
+            kd15=me["kd"] / minutes * 15,
+            sub15=me["sub"] / minutes * 15,
+            ctrl_share=me["ctrl"] / 60 / minutes,
+        )
+
+    return StyleSummary(career=rates(usable), last5=rates(usable[:5]))
+
+
 def summarize(session: Session, fighter: Fighter, as_of: date, bouts: list[Bout] | None = None):
     """Build a FighterSummary plus the full newest-first record list."""
     if bouts is None:
@@ -198,6 +261,7 @@ def summarize(session: Session, fighter: Fighter, as_of: date, bouts: list[Bout]
         years_in_ufc=round((as_of - debut).days / 365.25, 1) if debut else None,
         latest_division=latest_division(records),
         recent_fights=records[:5],
+        style=style_summary(session, fighter.id, bouts),
         limited_data=limited,
     )
     return summary, records
