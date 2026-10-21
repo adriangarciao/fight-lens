@@ -6,10 +6,12 @@
   --ink-3: #8a8378;
   --rule: #1412101f;
   --hot: #e5381b;
-  /* Fighter colors are deliberately not red/blue: source order is not a corner. */
-  --a: #1f5c4a;
-  --b: #9a5a12;
-  --win: #1f5c4a;
+  /* Fighter colors are deliberately not red/blue: source order is not a corner. Validated with
+     the dataviz palette checker (lightness band, chroma, CVD separation, contrast) per mode. */
+  --a: #13805e;
+  --b: #a35f10;
+  /* Status colors never reuse a fighter color: wins are ink (newsprint style), losses red. */
+  --win: var(--ink);
   --loss: #b3261e;
   --flag-bg: #fff3c4;
   --flag-ink: #5b4300;
@@ -27,9 +29,9 @@
     --ink-3: #7d766b;
     --rule: #efe9dd1f;
     --hot: #ff5a3c;
-    --a: #5fbf9f;
-    --b: #e0a04c;
-    --win: #5fbf9f;
+    --a: #2f9c7b;
+    --b: #c4842c;
+    --win: var(--ink);
     --loss: #ff7a6b;
     --flag-bg: #3a3014;
     --flag-ink: #f3d77a;
@@ -205,6 +207,19 @@ h3 { font-size: 20px; font-weight: 800; }
   .event-row { grid-template-columns: 1fr auto; }
   .event-row .event-date { grid-column: 1 / -1; }
   .bout .name { font-size: 20px; }
+  /* Bouts: both fighters on one row, details and prediction full-width underneath. */
+  .bout { grid-template-columns: 1fr 1fr; grid-template-areas: "a b" "meta meta"; row-gap: 10px; }
+  .bout .side:first-child { grid-area: a; }
+  .bout .side.right { grid-area: b; }
+  .bout .meta { grid-area: meta; }
+  .bout .meta .vs { display: none; }
+  .card-pred { max-width: none; }
+  /* Breakdown: the win line already names both fighters in their colors. */
+  .tape-header { display: none; }
+  .pickers { gap: 12px; }
+  .pickers > .vs { display: none; }
+  .picker input { font-size: 22px; }
+  .section { margin-top: 36px; }
   .masthead .brand { font-size: 36px; }
 }
 
@@ -269,3 +284,37 @@ h3 { font-size: 20px; font-weight: 800; }
   .tile:nth-child(2) { border-right: 0; }
   .results-table th:first-child, .results-table td:first-child { display: none; }
 }
+
+/* Charts */
+.chart { position: relative; margin-top: 8px; }
+.chart svg { display: block; overflow: visible; }
+.chart .grid line { stroke: var(--rule); stroke-width: 1; }
+.chart .axis text { fill: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.chart .ref { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .ref-label { fill: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.chart .series.a { stroke: var(--a); }
+.chart .series.b { stroke: var(--b); }
+.mark.a { fill: var(--a); }
+.mark.b { fill: var(--b); }
+.mark.ring { stroke: var(--paper); stroke-width: 2; paint-order: stroke; }
+.swatch { display: block; overflow: visible; flex: none; }
+.chart .crosshair { stroke: var(--ink-2); stroke-width: 1; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart .end-label { fill: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+.chart .row-label { fill: var(--ink-2); font-family: var(--mono); font-size: 11px; }
+.chart .row-band { fill: transparent; }
+.chart .row-band:hover, .chart .row-band.active { fill: var(--paper-2); }
+.chart :focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tooltip {
+  position: absolute; z-index: 5; pointer-events: none; min-width: 180px; max-width: 260px;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
+  padding: 8px 10px; font-family: var(--mono); font-size: 12px; line-height: 1.45;
+}
+.tooltip .t-head { font-weight: 600; margin-bottom: 4px; }
+.tooltip .t-row { display: flex; align-items: center; gap: 6px; }
+.chart-table summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+.chart-table table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; margin-top: 8px; }
+.chart-table td, .chart-table th { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--rule); font-weight: 400; }

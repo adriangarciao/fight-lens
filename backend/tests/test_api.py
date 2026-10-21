@@ -1,3 +1,7 @@
+from itertools import pairwise
+
+import pytest
+
 from tests.conftest import fighter_id
 
 
@@ -46,3 +50,22 @@ def test_events(client):
     recent = client.get("/api/events/recent").json()
     assert recent[0]["name"] == "UFC F"
     assert client.get("/api/events/99999").status_code == 404
+
+
+def test_matchup_profile_ratings_and_league(client, loaded):
+    a, b = fighter_id(loaded, "Alpha Ace"), fighter_id(loaded, "Bravo Bell")
+    body = client.get(
+        "/api/matchups/profile", params={"fighterA": a, "fighterB": b, "asOf": "2026-10-20"}
+    ).json()
+    assert body["model_version"] is None  # works without an active model
+    alpha = body["ratings"]["a"]
+    assert [p["result"] for p in alpha] == ["W", "L", "W", "NC", "W"]
+    nc = alpha[3]
+    assert nc["elo"] == nc["elo_before"]  # a no-contest doesn't move the rating
+    assert all(p["elo_before"] == q["elo"] for q, p in pairwise(alpha))  # continuous series
+    assert body["league"]["str_def"] == pytest.approx(1 - body["league"]["str_acc"])
+
+    early = client.get(
+        "/api/matchups/profile", params={"fighterA": a, "fighterB": b, "asOf": "2022-06-04"}
+    ).json()
+    assert len(early["ratings"]["a"]) == 2  # only bouts before the as-of date

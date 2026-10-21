@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { api, type FighterRef, type FighterSummary, type MatchupComparison, type StyleStats } from "../api";
 import { FighterPicker } from "../components/FighterPicker";
 import { PredictionPanel } from "../components/PredictionPanel";
+import { RatingChart } from "../components/RatingChart";
+import { StyleProfileChart } from "../components/StyleProfileChart";
 import { Timeline } from "../components/Timeline";
 import { fmtDate, fmtDays, fmtFinish, fmtHeight, fmtRecord, method } from "../format";
 import { useAsync } from "../useAsync";
@@ -64,6 +66,44 @@ function styleCell(s: FighterSummary, key: StyleKey, fmt: (x: number) => string)
     <>
       {fmt(career)}
       {showLast5 && <span className="muted small"> ({fmt(last5)})</span>}
+    </>
+  );
+}
+
+function Charts({ m }: { m: MatchupComparison }) {
+  const { fighter_a: A, fighter_b: B } = m;
+  const { data, error } = useAsync(() => api.matchupProfile(A.fighter.id, B.fighter.id, m.as_of), [
+    A.fighter.id,
+    B.fighter.id,
+    m.as_of,
+  ]);
+  if (error) return <p className="error">{error}</p>;
+  if (!data) return <p className="loading">Loading charts</p>;
+  return (
+    <>
+      <section className="section">
+        <div className="section-head">
+          <h2>Strength over time</h2>
+          <span className="mono small muted">rating after each UFC bout</span>
+        </div>
+        <RatingChart
+          a={{ side: "a", name: A.fighter.name, points: data.ratings.a }}
+          b={{ side: "b", name: B.fighter.name, points: data.ratings.b }}
+          asOf={m.as_of}
+          eloK={data.elo_k}
+        />
+      </section>
+      <section className="section">
+        <div className="section-head">
+          <h2>Style profile</h2>
+          <span className="mono small muted">vs league average</span>
+        </div>
+        <StyleProfileChart
+          a={{ name: A.fighter.name, style: A.style.career }}
+          b={{ name: B.fighter.name, style: B.style.career }}
+          league={data.league}
+        />
+      </section>
     </>
   );
 }
@@ -130,6 +170,7 @@ function Comparison({ m, rounds, title }: { m: MatchupComparison; rounds: 3 | 5;
           ))}
         </tbody>
       </table>
+      <Charts m={m} />
       <StyleTable A={A} B={B} />
 
       <div className="two-col">

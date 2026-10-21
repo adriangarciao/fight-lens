@@ -70,7 +70,7 @@ Importing is idempotent. Completed results are immutable: a changed result is re
 
 ## Keeping it current
 
-`uv run fightlens refresh` is the job to schedule (e.g. daily cron). It downloads a new snapshot, imports it, scores finished bouts against their pre-fight predictions, and stores predictions for newly scheduled bouts. It never retrains: run `fightlens train` deliberately, review `docs/model-report.md`, then `fightlens activate`. Only predictions stored before fight day count toward the track record ([ADR 0004](docs/adr/0004-live-track-record.md)).
+`uv run fightlens refresh` is the job to schedule. On Windows, `scripts/register-refresh-task.ps1` registers it as a daily Task Scheduler job (default 09:00, runs while you're logged on); `scripts/refresh.ps1` makes sure the database container is up and logs each run to `data/logs/`. Remove it with `Unregister-ScheduledTask -TaskName "FightLens Refresh"`. It downloads a new snapshot, imports it, scores finished bouts against their pre-fight predictions, and stores predictions for newly scheduled bouts. It never retrains: run `fightlens train` deliberately, review `docs/model-report.md`, then `fightlens activate`. Only predictions stored before fight day count toward the track record ([ADR 0004](docs/adr/0004-live-track-record.md)).
 
 ## Model
 
@@ -80,5 +80,5 @@ See [docs/adr/0003-baseline-model-design.md](docs/adr/0003-baseline-model-design
 
 - [x] **Phase 1:** data audit, schema + migrations, idempotent importer, comparison API and page
 - [x] **Phase 2:** time-correct features, Elo + logistic baselines, CatBoost challenger, calibration, conditional method model, versioned artifacts, evaluation report
-- [ ] **Phase 3:** stat visualizations, richer evidence views, mobile polish (predictions on cards are done)
+- [x] **Phase 3:** predictions on cards, rating-history and style-profile charts, striking/grappling comparison, mobile layouts
 - [ ] **Phase 4:** sourced injury context, rankings history (prediction-vs-result tracking is done)

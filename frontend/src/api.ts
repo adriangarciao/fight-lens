@@ -200,6 +200,35 @@ export interface TrackRecord {
   next_event_date: string | null;
 }
 
+export interface RatingPoint {
+  date: string;
+  elo: number;
+  elo_before: number;
+  opponent: FighterRef;
+  result: Result;
+  method: string | null;
+}
+
+export interface LeagueAverages {
+  slpm: number;
+  str_acc: number;
+  str_def: number;
+  td15: number;
+  td_acc: number;
+  td_def: number;
+  kd15: number;
+  sub15: number;
+  ctrl_share: number;
+}
+
+export interface MatchupProfile {
+  as_of: string;
+  model_version: string | null;
+  elo_k: number;
+  ratings: { a: RatingPoint[]; b: RatingPoint[] };
+  league: LeagueAverages;
+}
+
 export type Method = "KO/TKO" | "SUB" | "DEC";
 
 export interface Reason {
@@ -269,6 +298,8 @@ export const api = {
   searchFighters: (q: string) => get<FighterSearchResult[]>("/api/fighters/search", { q }),
   matchup: (a: number, b: number, asOf?: string) =>
     get<MatchupComparison>("/api/matchups", { fighterA: a, fighterB: b, asOf }),
+  matchupProfile: (a: number, b: number, asOf?: string) =>
+    get<MatchupProfile>("/api/matchups/profile", { fighterA: a, fighterB: b, asOf }),
   trackRecord: () => get<TrackRecord>("/api/track-record"),
   predictMatchup: (a: number, b: number, asOf: string | undefined, scheduledRounds: 3 | 5, titleBout: boolean) =>
     post<Prediction>("/api/predictions/matchup", { fighterA: a, fighterB: b, asOf, scheduledRounds, titleBout }),

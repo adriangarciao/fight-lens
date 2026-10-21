@@ -20,7 +20,7 @@ from app.db.models import (
     PredictionResult,
 )
 from app.ml import features as F
-from app.ml.artifacts import ModelBundle, load_bundle
+from app.ml.artifacts import IncompatibleArtifact, ModelBundle, load_bundle
 from app.ml.data import BoutRow, FighterStatic, load_history
 from app.ml.features import Context, HistoryEngine
 from app.ml.predict import RawPrediction, predict_pair
@@ -33,6 +33,7 @@ from app.schemas.predictions import (
     PredictionOut,
     Reason,
 )
+from app.schemas.profile import LeagueAverages, MatchupProfile, RatingPoint
 from app.services.history import NON_DIVISIONS
 
 METHOD_WORD = {"KO/TKO": "KO/TKO", "SUB": "submission", "DEC": "decision"}
@@ -50,6 +51,7 @@ class _State:
     history: tuple[list[BoutRow], dict[int, FighterStatic]] | None = None
     engines: OrderedDict = OrderedDict()
     results: OrderedDict = OrderedDict()
+    names: dict[int, str] | None = None
 
 
 _state = _State()
@@ -61,6 +63,7 @@ def reset_caches() -> None:
     _state.history = None
     _state.engines.clear()
     _state.results.clear()
+    _state.names = None
 
 
 def active_bundle(session: Session) -> tuple[ModelVersion, ModelBundle]:
@@ -83,16 +86,21 @@ def _history(session: Session) -> tuple[list[BoutRow], dict[int, FighterStatic]]
     if key != _state.history_key:
         _state.history = load_history(session)
         _state.history_key = key
+        _state.names = None
         _state.engines.clear()
         _state.results.clear()
     return _state.history
 
 
 def _engine(session: Session, bundle: ModelBundle, as_of: date) -> HistoryEngine:
+    return _engine_for(session, bundle.version, bundle.elo_k, as_of)
+
+
+def _engine_for(session: Session, version: str, elo_k: float, as_of: date) -> HistoryEngine:
     bouts, statics = _history(session)
-    key = (bundle.version, as_of)
+    key = (version, as_of)
     if key not in _state.engines:
-        engine = HistoryEngine(statics, bundle.elo_k)
+        engine = HistoryEngine(statics, elo_k)
         engine.replay(bouts, before=as_of)
         _state.engines[key] = engine
         while len(_state.engines) > _ENGINE_CACHE_SIZE:
@@ -236,6 +244,56 @@ def predict_bout(session: Session, bout_id: int) -> PredictionOut | None:
         bout.division,
         bout.scheduled_rounds_source,
     )
+
+
+def matchup_profile(session: Session, a: Fighter, b: Fighter, as_of: date) -> MatchupProfile:
+    """Rating histories and league style averages, from the same engine the model uses."""
+    try:
+        mv, bundle = active_bundle(session)
+        version, elo_k = mv.version, bundle.elo_k
+    except (NoActiveModel, IncompatibleArtifact):
+        version, elo_k = None, F.DEFAULT_ELO_K
+    engine = _engine_for(session, version or "no-model", elo_k, as_of)
+
+    def history(fighter: Fighter) -> list[RatingPoint]:
+        st = engine.state[fighter.id]
+        afters = [*st.elo_history[1:], st.elo]
+        return [
+            RatingPoint(
+                date=past.on,
+                elo=round(after, 1),
+                elo_before=round(before, 1),
+                opponent=FighterRef(id=past.opponent, name=_names(session).get(past.opponent, "?")),
+                result=past.result,
+                method=past.method,
+            )
+            for past, before, after in zip(st.bouts, st.elo_history, afters, strict=True)
+        ]
+
+    league = engine.league.priors()
+    return MatchupProfile(
+        as_of=as_of,
+        model_version=version,
+        elo_k=elo_k,
+        ratings={"a": history(a), "b": history(b)},
+        league=LeagueAverages(
+            slpm=league["slpm"],
+            str_acc=league["str_acc"],
+            str_def=1 - league["str_acc"],
+            td15=league["td15"],
+            td_acc=league["td_acc"],
+            td_def=1 - league["td_acc"],
+            kd15=league["kd15"],
+            sub15=league["sub15"],
+            ctrl_share=league["ctrl_share"],
+        ),
+    )
+
+
+def _names(session: Session) -> dict[int, str]:
+    if _state.names is None:
+        _state.names = dict(session.execute(select(Fighter.id, Fighter.display_name)).all())
+    return _state.names
 
 
 def batch_predict_scheduled(session: Session) -> dict:
