@@ -1,6 +1,6 @@
-# Model evaluation: 20261017-logistic-c59d61-r2
+# Model evaluation: 20261107-logistic-c59d61
 
-Generated 2026-10-21T04:24:13Z. Data through 2026-10-17 (snapshot `dd9e0c59bb92`). Feature set `fs-2` (schema `c59d61c16ff08f82`).
+Generated 2026-11-11T04:21:04Z. Data through 2026-11-07 (snapshot `b719e644e287`). Feature set `fs-2` (schema `c59d61c16ff08f82`).
 
 ## Method
 
@@ -27,13 +27,13 @@ Selected K = 96.
 
 | Model | Bouts | Log loss | Brier | Accuracy |
 |---|---:|---:|---:|---:|
-| coin_flip | 5329 | 0.6931 | 0.2500 | 50.0% |
-| elo | 5329 | 0.6817 | 0.2443 | 55.7% |
-| logistic **(selected)** | 5329 | 0.6455 | 0.2270 | 62.5% |
-| catboost | 5329 | 0.6500 | 0.2291 | 61.0% |
-| logistic_fs1 | 5329 | 0.6583 | 0.2331 | 60.3% |
+| coin_flip | 5369 | 0.6931 | 0.2500 | 50.0% |
+| elo | 5369 | 0.6815 | 0.2443 | 55.7% |
+| logistic **(selected)** | 5369 | 0.6454 | 0.2270 | 62.5% |
+| catboost | 5369 | 0.6496 | 0.2290 | 61.1% |
+| logistic_fs1 | 5369 | 0.6581 | 0.2330 | 60.3% |
 
-**Ablation:** the same logistic model without per-fight striking/grappling stats (`logistic_fs1`) scores 0.6583. The stats change log loss by -0.0128 (better) and accuracy by +2.1 points.
+**Ablation:** the same logistic model without per-fight striking/grappling stats (`logistic_fs1`) scores 0.6581. The stats change log loss by -0.0127 (better) and accuracy by +2.2 points.
 
 ### Log loss by test year
 
@@ -49,27 +49,27 @@ Selected K = 96.
 | 2023 | 0.6931 | 0.6820 | 0.6436 | 0.6523 | 0.6516 |
 | 2024 | 0.6931 | 0.6783 | 0.6318 | 0.6429 | 0.6495 |
 | 2025 | 0.6931 | 0.6765 | 0.6196 | 0.6203 | 0.6372 |
-| 2026 | 0.6931 | 0.6858 | 0.6433 | 0.6442 | 0.6499 |
+| 2026 | 0.6931 | 0.6837 | 0.6422 | 0.6411 | 0.6484 |
 
 ### Calibration: logistic (favourite's probability vs. how often the favourite won)
 
 | Bucket | Bouts | Mean predicted | Observed |
 |---|---:|---:|---:|
-| 50%-55% | 1307 | 52.4% | 50.7% |
-| 55%-60% | 1178 | 57.5% | 60.4% |
-| 60%-65% | 1006 | 62.4% | 61.9% |
-| 65%-70% | 761 | 67.4% | 68.2% |
-| 70%-75% | 528 | 72.3% | 71.8% |
-| 75%-80% | 292 | 77.2% | 77.7% |
-| 80%-100% | 257 | 84.1% | 79.8% |
+| 50%-55% | 1314 | 52.4% | 50.9% |
+| 55%-60% | 1183 | 57.5% | 60.4% |
+| 60%-65% | 1017 | 62.4% | 62.0% |
+| 65%-70% | 766 | 67.4% | 68.3% |
+| 70%-75% | 530 | 72.3% | 71.7% |
+| 75%-80% | 299 | 77.2% | 77.3% |
+| 80%-100% | 260 | 84.1% | 80.0% |
 
 ## Method of victory (conditional on the actual winner)
 
 | Model | Bouts | Log loss | Accuracy | Joint 6-outcome log loss |
 |---|---:|---:|---:|---:|
-| prior | 5317 | 1.0242 | 49.4% | 1.6694 |
-| logistic | 5317 | 0.9537 | 53.4% | 1.5989 |
-| catboost **(selected)** | 5317 | 0.9477 | 53.5% | 1.5929 |
+| prior | 5357 | 1.0238 | 49.4% | 1.6688 |
+| logistic | 5357 | 0.9532 | 53.4% | 1.5983 |
+| catboost **(selected)** | 5357 | 0.9474 | 53.6% | 1.5924 |
 
 `prior` predicts training-set class frequencies. Joint log loss scores P(actual winner) × P(actual method | winner) using the best winner model.
 
@@ -77,45 +77,45 @@ Selected K = 96.
 
 | Feature | Coefficient |
 |---|---:|
-| `adj_str_off_diff` | +0.421 |
-| `stats_minutes_diff` | +0.338 |
-| `age_diff` | -0.333 |
-| `adj_str_def_diff` | +0.330 |
-| `experience_diff` | -0.258 |
-| `last3_diff` | -0.178 |
-| `opp_elo_last5_diff` | +0.168 |
+| `adj_str_off_diff` | +0.411 |
+| `stats_minutes_diff` | +0.356 |
+| `adj_str_def_diff` | +0.341 |
+| `age_diff` | -0.334 |
+| `experience_diff` | -0.271 |
+| `last3_diff` | -0.187 |
+| `opp_elo_last5_diff` | +0.160 |
 | `str_def_diff` | +0.154 |
-| `debut_diff` | -0.146 |
-| `elo_diff` | +0.140 |
-| `slpm_diff` | -0.128 |
-| `td15_diff` | +0.121 |
-| `striking_matchup` | -0.119 |
-| `td_acc_diff` | -0.111 |
-| `ko_loss_rate_diff` | -0.107 |
-| `log_layoff_diff` | -0.103 |
-| `sub_loss_rate_diff` | -0.098 |
-| `wrestling_matchup` | +0.087 |
-| `streak_diff` | +0.085 |
-| `decision_rate_diff` | -0.083 |
-| `reach_diff` | +0.077 |
-| `str_acc_diff` | +0.072 |
-| `win_rate_diff` | -0.067 |
-| `ko_win_rate_diff` | +0.062 |
-| `recent_win_rate_diff` | +0.062 |
-| `sub_win_rate_diff` | +0.061 |
-| `southpaw_edge` | +0.060 |
-| `elo_trend_diff` | +0.050 |
-| `kd_absorbed15_diff` | -0.050 |
-| `td_def_diff` | +0.048 |
+| `elo_diff` | +0.148 |
+| `debut_diff` | -0.138 |
+| `td15_diff` | +0.131 |
+| `striking_matchup` | -0.118 |
+| `slpm_diff` | -0.118 |
+| `ko_loss_rate_diff` | -0.115 |
+| `td_acc_diff` | -0.110 |
+| `sub_loss_rate_diff` | -0.106 |
+| `log_layoff_diff` | -0.100 |
+| `decision_rate_diff` | -0.097 |
+| `streak_diff` | +0.084 |
+| `str_acc_diff` | +0.074 |
+| `reach_diff` | +0.073 |
+| `wrestling_matchup` | +0.073 |
+| `win_rate_diff` | -0.069 |
+| `recent_win_rate_diff` | +0.064 |
+| `southpaw_edge` | +0.061 |
+| `td_def_diff` | +0.056 |
+| `sub_win_rate_diff` | +0.052 |
+| `elo_trend_diff` | +0.052 |
+| `ko_win_rate_diff` | +0.050 |
 | `kd15_diff` | +0.048 |
-| `adj_td_off_diff` | +0.043 |
-| `h2h_score` | +0.037 |
-| `sub15_diff` | +0.029 |
-| `elo_diff_x_5rd` | -0.023 |
-| `decision_rate_diff_x_5rd` | +0.021 |
-| `ctrl_share_diff` | -0.020 |
+| `kd_absorbed15_diff` | -0.048 |
+| `adj_td_off_diff` | +0.047 |
+| `h2h_score` | +0.038 |
+| `ctrl_share_diff` | -0.026 |
+| `sub15_diff` | +0.026 |
+| `elo_diff_x_5rd` | -0.025 |
+| `decision_rate_diff_x_5rd` | +0.018 |
 | `height_diff` | +0.018 |
-| `sapm_diff` | -0.006 |
+| `sapm_diff` | +0.003 |
 
 ## Benchmark: betting market (evaluation only, never a model input)
 
@@ -132,7 +132,7 @@ Selected K = 96.
 
 - Market minus model log loss: -0.0369. The market is sharper, as expected: it prices in information the model doesn't have (injuries, weight cuts, camp news, fight footage).
 - The model and the market pick the same favourite in 73.6% of bouts. Mean absolute probability gap: 11.1%.
-- Six outcomes (winner × method), 4337 bouts with full method props: market log loss 1.5413, model 1.5862.
+- Six outcomes (winner × method), 4337 bouts with full method props: market log loss 1.5413, model 1.5860.
 
 ### Market calibration (favourite's implied probability vs. how often the favourite won)
 
