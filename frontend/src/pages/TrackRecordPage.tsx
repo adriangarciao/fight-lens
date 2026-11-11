@@ -79,9 +79,13 @@ export function TrackRecordPage() {
                 <tr className="mono small muted">
                   <th>Date</th>
                   <th>Bout</th>
-                  <th>Model said</th>
-                  <th>Result</th>
-                  <th />
+                  <th>
+                    <span className="pva-label pick">Predicted</span>
+                  </th>
+                  <th>
+                    <span className="pva-label actual">Actual</span>
+                  </th>
+                  <th>Verdict</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,15 +111,15 @@ export function TrackRecordPage() {
                             ] ?? r.actual_outcome
                           : `${r.winner?.name} by ${METHOD_LABEL[r.actual_method ?? ""] ?? r.actual_method}`}
                       </td>
-                      <td className="mono">
+                      <td>
                         {r.status === "void" ? (
-                          <span className="muted">void</span>
+                          <span className="verdict void">Void</span>
                         ) : r.favourite_correct == null ? (
-                          <span className="muted">50/50</span>
+                          <span className="verdict toss">50/50</span>
                         ) : r.favourite_correct ? (
-                          <span className="hit">✓</span>
+                          <span className="verdict hit">✓ Called it</span>
                         ) : (
-                          <span className="miss">✗</span>
+                          <span className="verdict miss">✗ Missed</span>
                         )}
                       </td>
                     </tr>

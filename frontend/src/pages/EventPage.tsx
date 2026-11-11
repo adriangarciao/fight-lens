@@ -4,14 +4,54 @@ import { SplitBar } from "../components/PredictionPanel";
 import { fmtDate, fmtFinish, fmtRecord, method } from "../format";
 import { useAsync } from "../useAsync";
 
+type Verdict = "hit" | "miss" | "void" | "toss";
+
+function verdictOf(b: CardBout): Verdict | null {
+  const r = b.prediction?.result;
+  if (!r) return null;
+  if (r.status === "void") return "void";
+  if (r.favourite_correct == null) return "toss";
+  return r.favourite_correct ? "hit" : "miss";
+}
+
+const VERDICT_LABEL: { [k in Verdict]: string } = {
+  hit: "✓ Called it",
+  miss: "✗ Missed",
+  void: "Void · no winner",
+  toss: "50/50 call",
+};
+
+function actualText(b: CardBout) {
+  if (b.outcome === "win") {
+    const w = b.winner_id === b.fighter_1.id ? b.fighter_1 : b.fighter_2;
+    return `${w.name} by ${method(b.method, null)}`;
+  }
+  return b.outcome === "draw" ? "Draw" : "No contest";
+}
+
 function Bout({ b, date, i }: { b: CardBout; date: string; i: number }) {
   const done = b.status === "completed";
+  const p = b.prediction;
+  const pickId = p && p.p_1 !== p.p_2 ? (p.p_1 > p.p_2 ? b.fighter_1.id : b.fighter_2.id) : null;
+  const pick = pickId === b.fighter_1.id ? b.fighter_1 : pickId === b.fighter_2.id ? b.fighter_2 : null;
+  const verdict = verdictOf(b);
+
+  const side = (f: CardBout["fighter_1"], rec: CardBout["record_1"], right: boolean) => (
+    <div className={`side ${right ? "right" : ""}`}>
+      <span className={`name ${done && b.winner_id === f.id ? "won" : ""}`}>{f.name}</span>
+      <span className="mono small muted">{fmtRecord(rec)} UFC</span>
+      {(pickId === f.id || (done && b.winner_id === f.id)) && (
+        <span className="chips">
+          {pickId === f.id && <span className="chip pick">{done ? "Predicted" : "Pick"}</span>}
+          {done && b.winner_id === f.id && <span className="chip actual">Actual winner</span>}
+        </span>
+      )}
+    </div>
+  );
+
   return (
-    <div className="bout" style={{ animationDelay: `${i * 35}ms` }}>
-      <div className="side">
-        <span className={`name ${b.winner_id === b.fighter_1.id ? "won" : ""}`}>{b.fighter_1.name}</span>
-        <span className="mono small muted">{fmtRecord(b.record_1)} UFC</span>
-      </div>
+    <div className={`bout${verdict ? ` v-${verdict}` : ""}`} style={{ animationDelay: `${i * 35}ms` }}>
+      {side(b.fighter_1, b.record_1, false)}
       <div className="meta">
         <span className="vs">VS</span>
         <span className="mono small">{b.division ?? b.weight_class_raw}</span>
@@ -20,37 +60,52 @@ function Bout({ b, date, i }: { b: CardBout; date: string; i: number }) {
           {b.scheduled_rounds_source?.startsWith("rule:") ? " (inferred)" : ""}
           {b.is_title_bout ? " · title" : ""}
         </span>
-        {done && (
-          <span className="small">
-            {b.outcome === "win" ? method(b.method, null) : b.outcome === "draw" ? "Draw" : "No contest"}
-            <span className="muted"> {fmtFinish(b.end_round, b.end_time_seconds)}</span>
-          </span>
-        )}
-        {b.prediction ? (
+        {p ? (
           <div className="card-pred">
             <div className="pcts">
-              <span className="side-a">{Math.round(b.prediction.p_1 * 100)}%</span>
-              <span className="side-b">{Math.round(b.prediction.p_2 * 100)}%</span>
+              <span className="side-a">{Math.round(p.p_1 * 100)}%</span>
+              <span className="side-b">{Math.round(p.p_2 * 100)}%</span>
             </div>
-            <SplitBar a={b.prediction.p_1} b={b.prediction.p_2} compact />
-            <div className="small muted" style={{ marginTop: 4 }}>
-              {done ? "Pre-fight pick" : "Most likely"}: {b.prediction.likely_outcome} (
-              {Math.round(b.prediction.likely_outcome_probability * 100)}%)
-            </div>
-            {b.prediction.result && (
-              <div className="mono small" style={{ marginTop: 2 }}>
-                {b.prediction.result.status === "void" ? (
-                  <span className="muted">void (no winner)</span>
-                ) : b.prediction.result.favourite_correct ? (
-                  <span className="hit">✓ favourite won · gave winner {Math.round((b.prediction.result.p_actual_winner ?? 0) * 100)}%</span>
-                ) : (
-                  <span className="miss">✗ upset · gave winner {Math.round((b.prediction.result.p_actual_winner ?? 0) * 100)}%</span>
-                )}
+            <SplitBar a={p.p_1} b={p.p_2} compact />
+            {done ? (
+              <dl className="pva">
+                <dt className="pva-label pick">Predicted</dt>
+                <dd>
+                  {pick ? `${pick.name} ${Math.round(Math.max(p.p_1, p.p_2) * 100)}%` : "Toss-up"}
+                  <span className="muted">
+                    {" "}
+                    · likely {p.likely_outcome} ({Math.round(p.likely_outcome_probability * 100)}%)
+                  </span>
+                </dd>
+                <dt className="pva-label actual">Actual</dt>
+                <dd>
+                  {actualText(b)}
+                  <span className="muted"> {fmtFinish(b.end_round, b.end_time_seconds)}</span>
+                </dd>
+              </dl>
+            ) : (
+              <div className="small muted" style={{ marginTop: 4 }}>
+                Most likely: {p.likely_outcome} ({Math.round(p.likely_outcome_probability * 100)}%)
               </div>
             )}
+            {verdict && (
+              <span className={`verdict ${verdict}`}>
+                {VERDICT_LABEL[verdict]}
+                {(verdict === "hit" || verdict === "miss") &&
+                  ` · gave winner ${Math.round((p.result?.p_actual_winner ?? 0) * 100)}%`}
+              </span>
+            )}
           </div>
+        ) : done ? (
+          <>
+            <span className="small">
+              {actualText(b)}
+              <span className="muted"> {fmtFinish(b.end_round, b.end_time_seconds)}</span>
+            </span>
+            <span className="mono small muted">No pre-fight prediction stored</span>
+          </>
         ) : (
-          !done && <span className="mono small muted">No stored prediction yet</span>
+          <span className="mono small muted">No stored prediction yet</span>
         )}
         <Link
           className="btn ghost"
@@ -59,10 +114,27 @@ function Bout({ b, date, i }: { b: CardBout; date: string; i: number }) {
           Breakdown
         </Link>
       </div>
-      <div className="side right">
-        <span className={`name ${b.winner_id === b.fighter_2.id ? "won" : ""}`}>{b.fighter_2.name}</span>
-        <span className="mono small muted">{fmtRecord(b.record_2)} UFC</span>
-      </div>
+      {side(b.fighter_2, b.record_2, true)}
+    </div>
+  );
+}
+
+function CardScore({ bouts }: { bouts: CardBout[] }) {
+  const v = bouts.map(verdictOf).filter((x): x is Verdict => x != null);
+  if (v.length === 0) return null;
+  const hits = v.filter((x) => x === "hit").length;
+  const decided = hits + v.filter((x) => x === "miss").length;
+  return (
+    <div className="card-score">
+      <span className="kicker">Predicted vs actual</span>
+      <span className="card-score-num">
+        {hits}
+        <span className="muted">/{decided}</span>
+      </span>
+      <span className="small">
+        winners called correctly
+        {v.length > decided && <span className="muted"> · {v.length - decided} void or 50/50</span>}
+      </span>
     </div>
   );
 }
@@ -89,6 +161,7 @@ export function EventPage() {
         Records shown are UFC bouts in the source data before this event. The order fighters are listed in comes from the
         source and doesn't mean anything.
       </p>
+      <CardScore bouts={data.bouts} />
       <div className="section">
         {data.bouts.map((b, i) => (
           <Bout key={b.bout_id} b={b} date={data.date} i={i} />

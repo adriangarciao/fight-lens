@@ -111,7 +111,6 @@ h3 { font-size: 20px; font-weight: 800; }
 .bout .side { display: flex; flex-direction: column; }
 .bout .side.right { text-align: right; align-items: flex-end; }
 .bout .name { font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; line-height: 1; }
-.bout .name.won::after { content: " ✓"; color: var(--win); }
 .bout .meta { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .vs { font-family: var(--display); font-weight: 900; font-size: 18px; color: var(--hot); }
 
@@ -263,6 +262,37 @@ h3 { font-size: 20px; font-weight: 800; }
 .reason-head .weight { display: inline-block; height: 6px; background: currentColor; flex: none; }
 .card-pred { width: 100%; max-width: 220px; }
 .card-pred .pcts { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 13px; font-weight: 600; }
+/* Predicted vs actual. A forecast is drawn dashed; what happened is drawn solid. */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.side.right .chips { justify-content: flex-end; }
+.chip, .pva-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 6px; white-space: nowrap; line-height: 1.4;
+}
+.chip.pick, .pva-label.pick { border: 1px dashed var(--ink-2); color: var(--ink-2); }
+.chip.actual, .pva-label.actual { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.pva {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; align-items: baseline;
+  margin: 10px 0 0; text-align: left; font-size: 13px;
+}
+.pva dt { justify-self: start; }
+.pva dd { margin: 0; }
+.verdict {
+  display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; white-space: nowrap;
+}
+.verdict.hit { border: 1px solid var(--ink); color: var(--ink); }
+.verdict.miss { background: var(--loss); color: var(--paper); border: 1px solid var(--loss); }
+.verdict.void, .verdict.toss { border: 1px solid var(--ink-3); color: var(--ink-3); }
+.bout.v-hit, .bout.v-miss { padding-left: 12px; }
+.bout.v-hit { box-shadow: inset 3px 0 0 var(--ink); }
+.bout.v-miss { box-shadow: inset 3px 0 0 var(--loss); }
+.card-pred:has(.pva) { max-width: 300px; }
+.card-score {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px;
+  border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 10px 0; margin-top: 20px;
+}
+.card-score-num { font-family: var(--display); font-weight: 900; font-size: 40px; line-height: 0.9; }
 .rounds-toggle { display: inline-flex; border: 1px solid var(--ink-3); }
 .rounds-toggle button { background: none; border: 0; padding: 4px 10px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
 .rounds-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
