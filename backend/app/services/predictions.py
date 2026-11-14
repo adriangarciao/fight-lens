@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.config import get_settings
 from app.db.models import (
     Bout,
     Event,
@@ -66,12 +67,25 @@ def reset_caches() -> None:
     _state.names = None
 
 
+def bundle_dir(mv: ModelVersion) -> Path:
+    """Where the bundle for `mv` lives on this host.
+
+    `artifact_path` is the absolute path on the machine that trained it. A deployed API
+    (or a Linux box reading a path written on Windows) won't have that path, so fall back
+    to `<data_dir>/artifacts/<version>`, which is where training always writes bundles.
+    """
+    stored = Path(mv.artifact_path)
+    if stored.is_dir():
+        return stored
+    return get_settings().data_dir / "artifacts" / mv.version
+
+
 def active_bundle(session: Session) -> tuple[ModelVersion, ModelBundle]:
     mv = session.scalar(select(ModelVersion).where(ModelVersion.is_active.is_(True)))
     if mv is None:
         raise NoActiveModel("No active model. Run `fightlens train --activate`.")
     if _state.bundle is None or _state.bundle.version != mv.version:
-        _state.bundle = load_bundle(Path(mv.artifact_path))  # raises on schema mismatch
+        _state.bundle = load_bundle(bundle_dir(mv))  # raises on schema mismatch
         _state.engines.clear()
         _state.results.clear()
     return mv, _state.bundle
