@@ -1,0 +1,203 @@
+{
+  "version": "20261107-logistic-c59d61",
+  "feature_set_version": "fs-2",
+  "schema_hash": "c59d61c16ff08f82",
+  "winner_features": [
+    "elo_diff",
+    "experience_diff",
+    "age_diff",
+    "height_diff",
+    "reach_diff",
+    "win_rate_diff",
+    "recent_win_rate_diff",
+    "last3_diff",
+    "ko_win_rate_diff",
+    "sub_win_rate_diff",
+    "ko_loss_rate_diff",
+    "sub_loss_rate_diff",
+    "decision_rate_diff",
+    "opp_elo_last5_diff",
+    "elo_trend_diff",
+    "log_layoff_diff",
+    "debut_diff",
+    "streak_diff",
+    "h2h_score",
+    "southpaw_edge",
+    "elo_diff_x_5rd",
+    "decision_rate_diff_x_5rd",
+    "slpm_diff",
+    "sapm_diff",
+    "str_acc_diff",
+    "str_def_diff",
+    "td15_diff",
+    "td_acc_diff",
+    "td_def_diff",
+    "kd15_diff",
+    "kd_absorbed15_diff",
+    "sub15_diff",
+    "ctrl_share_diff",
+    "adj_str_off_diff",
+    "adj_str_def_diff",
+    "adj_td_off_diff",
+    "striking_matchup",
+    "wrestling_matchup",
+    "stats_minutes_diff"
+  ],
+  "method_features": [
+    "elo_diff",
+    "w_ko_win_rate",
+    "w_sub_win_rate",
+    "w_decision_rate",
+    "l_ko_loss_rate",
+    "l_sub_loss_rate",
+    "l_decision_rate",
+    "w_age",
+    "l_age",
+    "division_lbs",
+    "is_womens",
+    "five_rounds",
+    "w_kd15",
+    "w_sub15",
+    "w_td15",
+    "w_ctrl_share",
+    "w_slpm",
+    "l_kd_absorbed15",
+    "l_sapm",
+    "l_td_def",
+    "l_str_def"
+  ],
+  "method_classes": [
+    "KO/TKO",
+    "SUB",
+    "DEC"
+  ],
+  "elo_k": 96.0,
+  "winner_model": "logistic",
+  "method_model": "catboost",
+  "calibration_slope": 1.0099527008982028,
+  "trained_at": "2026-11-11T04:21:04.751679+00:00",
+  "data_snapshot_sha256": "b719e644e28709b3bb93e27852b4d39203f4ed67338143231ce686725b2fc29b",
+  "data_through": "2026-11-07",
+  "train_range": [
+    "2005-02-05",
+    "2025-11-01"
+  ],
+  "calibration_range": [
+    "2025-11-08",
+    "2026-11-07"
+  ],
+  "backtest_pooled": {
+    "coin_flip": {
+      "n": 5369,
+      "log_loss": 0.6931471805599453,
+      "brier": 0.25,
+      "accuracy": 0.5
+    },
+    "elo": {
+      "n": 5369,
+      "log_loss": 0.6815155898772551,
+      "brier": 0.2442710381690737,
+      "accuracy": 0.5572732352393369
+    },
+    "logistic": {
+      "n": 5369,
+      "log_loss": 0.6454132528004527,
+      "brier": 0.22698202541460089,
+      "accuracy": 0.6250698454088285
+    },
+    "catboost": {
+      "n": 5369,
+      "log_loss": 0.6496337290848899,
+      "brier": 0.22895236572604083,
+      "accuracy": 0.6105420003725088
+    },
+    "logistic_fs1": {
+      "n": 5369,
+      "log_loss": 0.6581365333459775,
+      "brier": 0.2329695145198932,
+      "accuracy": 0.6032780778543491
+    }
+  },
+  "backtest_method": {
+    "prior": {
+      "n": 5357,
+      "log_loss": 1.0237511266865669,
+      "accuracy": 0.49411984319581853,
+      "joint_log_loss": 1.6688053604398578
+    },
+    "logistic": {
+      "n": 5357,
+      "log_loss": 0.9532154154971989,
+      "accuracy": 0.5344409184244914,
+      "joint_log_loss": 1.5982696492504902
+    },
+    "catboost": {
+      "n": 5357,
+      "log_loss": 0.9473931612061431,
+      "accuracy": 0.5355609482919544,
+      "joint_log_loss": 1.5924473949594342
+    }
+  },
+  "market_benchmark": {
+    "n": 4591,
+    "years": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "mean_overround": 0.04043342694207543,
+    "winner": {
+      "market": {
+        "n": 4591,
+        "log_loss": 0.6064594902727348,
+        "brier": 0.20965584852568517,
+        "accuracy": 0.6645610978000436
+      },
+      "elo": {
+        "n": 4591,
+        "log_loss": 0.6815574744030839,
+        "brier": 0.24430805607613737,
+        "accuracy": 0.5568503593988238
+      },
+      "logistic": {
+        "n": 4591,
+        "log_loss": 0.6433547036536104,
+        "brier": 0.22615376051480748,
+        "accuracy": 0.6277499455456328
+      },
+      "catboost": {
+        "n": 4591,
+        "log_loss": 0.6487740431672292,
+        "brier": 0.22867459009642513,
+        "accuracy": 0.6107601829666739
+      },
+      "logistic_fs1": {
+        "n": 4591,
+        "log_loss": 0.6570166177248026,
+        "brier": 0.23247854214929764,
+        "accuracy": 0.6050969287736877
+      },
+      "coin_flip": {
+        "n": 4591,
+        "log_loss": 0.6931471805599454,
+        "brier": 0.25,
+        "accuracy": 0.5
+      }
+    },
+    "favourite_agreement": 0.7362230450882161,
+    "mean_abs_gap": 0.11082201471378919,
+    "six_outcome": {
+      "n": 4337,
+      "market_log_loss": 1.5412542005426555,
+      "model_log_loss": 1.5860036244349962
+    }
+  }
+}

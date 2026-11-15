@@ -68,6 +68,20 @@ Importing is idempotent. Completed results are immutable: a changed result is re
 | `GET /api/predictions/{boutId}` | Stored batch prediction for a bout (computed live if missing) |
 | `GET /api/track-record` | Live record of pre-fight predictions vs. results |
 
+## Deployment
+
+The API and database run on Railway and the frontend runs on Vercel.
+
+- **API (Railway):** `railway.toml` at the repo root builds `backend/Dockerfile` with the repo root as the build context (leave the service's Root Directory empty). The container runs `alembic upgrade head` on startup, serves uvicorn with a single worker, and is health-checked at `/api/health`.
+- **Variables:**
+  ```
+  FIGHTLENS_DATABASE_URL=postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
+  FIGHTLENS_CORS_ORIGINS=["https://<vercel-app>.vercel.app"]
+  ```
+  Use the `postgresql+psycopg://` scheme. Railway's own `DATABASE_URL` (`postgresql://`) makes SQLAlchemy look for psycopg2, which isn't installed.
+- **Data and model:** to populate production, run the usual `alembic upgrade head` → `import` → `import-stats` → `train --activate` → `predict` → `score` sequence from a dev machine with `FIGHTLENS_DATABASE_URL` pointed at the Postgres `DATABASE_PUBLIC_URL` (with the scheme switched to `postgresql+psycopg://`). Model bundles are git-ignored by default. Commit the bundle that's active in production with `git add -f data/artifacts/<version>`, because the image copies `data/artifacts/` and the API falls back to `<data_dir>/artifacts/<version>` when the stored path doesn't exist. If you activate a different version in production, commit that bundle and redeploy.
+- **Frontend (Vercel):** Root Directory `frontend` (Vite preset, `npm run build` → `dist`). `frontend/vercel.json` proxies `/api/*` to the Railway domain and sends every other path to `index.html` so deep links work. No env vars are needed.
+
 ## Keeping it current
 
 `uv run fightlens refresh` is the job to schedule. On Windows, `scripts/register-refresh-task.ps1` registers it as a daily Task Scheduler job (default 09:00, runs while you're logged on); `scripts/refresh.ps1` makes sure the database container is up and logs each run to `data/logs/`. Remove it with `Unregister-ScheduledTask -TaskName "FightLens Refresh"`. It downloads a new snapshot, imports it, scores finished bouts against their pre-fight predictions, and stores predictions for newly scheduled bouts. It never retrains: run `fightlens train` deliberately, review `docs/model-report.md`, then `fightlens activate`. Only predictions stored before fight day count toward the track record ([ADR 0004](docs/adr/0004-live-track-record.md)).

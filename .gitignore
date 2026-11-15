@@ -11,7 +11,8 @@ __pycache__/
 
 # Data: raw snapshots are re-fetchable via `fightlens fetch`; model artifacts are versioned separately
 data/raw/
-data/artifacts/
+data/artifacts/*
+!data/artifacts/.gitkeep
 data/logs/
 
 # Frontend
