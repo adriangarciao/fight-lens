@@ -1,0 +1,48 @@
+name: Refresh production data
+
+# Daily: fetch the latest fightr + per-fight stats snapshots, import them into the
+# production database, score finished bouts against their pre-fight predictions, and
+# store predictions for newly scheduled bouts. Never retrains, so the model bundle
+# committed in data/artifacts/ stays valid.
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 12:00 UTC daily
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-production
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Railway Postgres DATABASE_PUBLIC_URL with the scheme changed to postgresql+psycopg://
+      FIGHTLENS_DATABASE_URL: ${{ secrets.FIGHTLENS_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Check the database secret is set
+        run: |
+          if [ -z "$FIGHTLENS_DATABASE_URL" ]; then
+            echo "::error::Repository secret FIGHTLENS_DATABASE_URL is not set."
+            exit 1
+          fi
+
+      - run: uv sync --frozen --no-dev
+
+      - name: Refresh
+        run: |
+          uv run fightlens refresh | tee refresh.json
+          {
+            echo '### Refresh summary'
+            echo '```json'
+            cat refresh.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
