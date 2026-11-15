@@ -1,5 +1,7 @@
 # FightLens
 
+**Live:** https://fight-lens-six.vercel.app
+
 UFC matchup analysis: time-correct fight histories, head-to-head meetings and common opponents today, calibrated win/method probabilities next. Outputs are model estimates, not guaranteed results or sportsbook odds.
 
 ```
